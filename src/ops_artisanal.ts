@@ -2,6 +2,7 @@ import { shouldCreateGradient } from "./autograd";
 import { Tensor } from "./tensor";
 import type { Deviceish } from "./device";
 import type { Dtype } from "./dtype";
+import { slice } from "./custom/WebGPUKernels";
 import {
     broadcastBatchedMatmul,
     contiguousStridedShape,
@@ -20,6 +21,45 @@ import {
 import type { TensorData, TensorSpec, MemoryFormat } from "./tensor";
 import { KernelParamsInput } from "./kernel";
 import { GatherFunction, LinearFunction } from "./functions_artisanal";
+
+/**
+ * WEBGPU 64-CHANNEL BUG WORKAROUND
+ *
+ * WebGPU has a fundamental limit where compute operations only execute for the first 64 channels.
+ * This helper splits channel operations into batches of 64 to work around the limitation.
+ *
+ * @param totalChannels - Total number of channels to process
+ * @param channelDim - Which dimension contains channels (e.g., 0 for weight dim0, 1 for NCHW dim1)
+ * @param operation - Function that processes a channel range and returns a tensor
+ * @returns Concatenated result tensor with all channels
+ */
+function splitChannelOperation(
+    totalChannels: number,
+    channelDim: number,
+    operation: (startChannel: number, endChannel: number) => Tensor
+): Tensor {
+    const CHANNEL_BATCH_SIZE = 64;
+
+    if (totalChannels <= CHANNEL_BATCH_SIZE) {
+        // No split needed
+        return operation(0, totalChannels);
+    }
+
+    // console.error(`[SPLIT_CHANNEL_OP] Splitting ${totalChannels} channels into batches of ${CHANNEL_BATCH_SIZE}`);
+
+    const results: Tensor[] = [];
+    for (let start = 0; start < totalChannels; start += CHANNEL_BATCH_SIZE) {
+        const end = Math.min(start + CHANNEL_BATCH_SIZE, totalChannels);
+        // console.error(`[SPLIT_CHANNEL_OP] Processing channels ${start}-${end-1}`);
+        results.push(operation(start, end));
+    }
+
+    // Concatenate all results along the channel dimension
+    const finalResult = cat(results, channelDim);
+    // console.error(`[SPLIT_CHANNEL_OP] Concatenated ${results.length} batches, final shape:`, finalResult.shape);
+
+    return finalResult;
+}
 
 export function cat(inputs: Tensor[], dim: number = 0): Tensor {
     if (inputs.length === 0) {
@@ -254,6 +294,37 @@ export function conv2d(
                 `Expected number of chennels in input image to match number of channels in kernel, got ${input.shape} and ${weight.shape}`
             );
         }
+
+        // Parse stride parameter
+        const strideH = typeof stride === 'number' ? stride : (stride?.[0] ?? 1);
+        const strideW = typeof stride === 'number' ? stride : (stride?.[1] ?? 1);
+
+        // Parse padding parameter
+        let padH = 0;
+        let padW = 0;
+        if (padding === 'valid') {
+            padH = 0;
+            padW = 0;
+        } else if (padding === 'same') {
+            // For 'same' padding with stride=1, calculate padding to maintain size
+            if (strideH !== 1 || strideW !== 1) {
+                throw new Error("'same' padding only supported with stride=1");
+            }
+            padH = Math.floor((weight.shape[2] - 1) / 2);
+            padW = Math.floor((weight.shape[3] - 1) / 2);
+        } else if (typeof padding === 'number') {
+            padH = padding;
+            padW = padding;
+        } else if (Array.isArray(padding)) {
+            padH = padding[0];
+            padW = padding[1];
+        }
+
+        // Calculate output dimensions using proper conv2d formula
+        // output_size = floor((input_size + 2*padding - kernel_size) / stride) + 1
+        const outputHeight = Math.floor((input.shape[2] + 2 * padH - weight.shape[2]) / strideH) + 1;
+        const outputWidth = Math.floor((input.shape[3] + 2 * padW - weight.shape[3]) / strideW) + 1;
+
         const params = {
             batchSize: input.shape[0],
             inputChannels: input.shape[1],
@@ -262,23 +333,175 @@ export function conv2d(
             inputWidth: input.shape[3],
             kernelHeight: weight.shape[2],
             kernelWidth: weight.shape[3],
-            outputHeight: input.shape[2] - weight.shape[2] + 1,
-            outputWidth: input.shape[3] - weight.shape[3] + 1,
+            outputHeight: outputHeight,
+            outputWidth: outputWidth,
+            padH: padH,
+            padW: padW,
+            strideH: strideH,
+            strideW: strideW,
         };
-        return input.runKernel(
+
+        // WORKAROUND: WebGPU 64-channel execution limit
+        // Use splitChannelOperation to handle any number of output channels
+        const result = splitChannelOperation(
+            params.outputChannels,
+            1, // Channel dimension in NCHW format
+            (startChannel: number, endChannel: number) => {
+                const channelCount = endChannel - startChannel;
+
+                // Slice weight tensor: [out_channels, in_channels, kH, kW]
+                const weightSlice = slice(weight, [[startChannel, endChannel], null, null, null]);
+
+                // Create params for this channel batch
+                const batchParams = { ...params, outputChannels: channelCount };
+
+                // Run kernel for this channel batch
+                return input.runKernel(
             "conv2d",
             { dtype: input.dtype },
-            params,
-            [
-                [
-                    params.batchSize,
-                    params.outputChannels,
-                    params.outputHeight,
-                    params.outputWidth,
-                ],
-            ],
-            weight
+                    batchParams,
+                    [[batchParams.batchSize, channelCount, batchParams.outputHeight, batchParams.outputWidth]],
+                    weightSlice
         )[0];
+            }
+        );
+
+        // Add bias if provided
+        // WORKAROUND: Use splitChannelOperation for bias addition too (64-channel limit affects .add() operation)
+        const finalResult = bias
+            ? splitChannelOperation(
+                bias.shape[0],
+                1, // Channel dimension in NCHW format
+                (startChannel: number, endChannel: number) => {
+                    const channelCount = endChannel - startChannel;
+
+                    // Slice bias: [out_channels]
+                    const biasSlice = slice(bias, [[startChannel, endChannel]]);
+
+                    // Slice result along channel dimension: [batch, channels, H, W]
+                    const resultSlice = slice(result, [null, [startChannel, endChannel], null, null]);
+
+                    // Reshape bias for broadcasting: [1, channels, 1, 1]
+                    const biasReshaped = biasSlice.reshape([1, channelCount, 1, 1]);
+
+                    // Add bias to this channel batch
+                    return resultSlice.add(biasReshaped);
+        }
+            )
+            : result;
+
+        return finalResult;
+    }
+}
+
+export function conv_transpose2d(
+    input: Tensor,
+    weight: Tensor,
+    bias?: Tensor,
+    stride?: number | [number, number],
+    padding?: number | [number, number]
+): Tensor {
+    if (shouldCreateGradient(input, weight)) {
+        throw new Error("conv_transpose2d gradient not supported yet");
+    } else {
+        if (input.shape.length !== 4 || weight.shape.length !== 4) {
+            throw new Error(
+                `Expected 4D tensors, got input ${input.shape} and weight ${weight.shape}`
+            );
+        }
+        // ConvTranspose2d weight shape: [in_channels, out_channels, kH, kW]
+        // Check that input channels match
+        if (input.shape[1] !== weight.shape[0]) {
+            throw new Error(
+                `Input channels (${input.shape[1]}) must match weight input channels (${weight.shape[0]})`
+            );
+        }
+
+        // Parse stride parameter (default: 1)
+        const strideH = typeof stride === 'number' ? stride : (stride?.[0] ?? 1);
+        const strideW = typeof stride === 'number' ? stride : (stride?.[1] ?? 1);
+
+        // Parse padding parameter (default: 0)
+        let padH = 0;
+        let padW = 0;
+        if (typeof padding === 'number') {
+            padH = padding;
+            padW = padding;
+        } else if (Array.isArray(padding)) {
+            padH = padding[0];
+            padW = padding[1];
+        }
+
+        // Calculate output dimensions using ConvTranspose2d formula
+        // output_size = (input_size - 1) * stride + kernel_size - 2 * padding
+        const outputHeight = (input.shape[2] - 1) * strideH + weight.shape[2] - 2 * padH;
+        const outputWidth = (input.shape[3] - 1) * strideW + weight.shape[3] - 2 * padW;
+
+        const params = {
+            batchSize: input.shape[0],
+            inputChannels: weight.shape[0],      // weight[0] = in_channels
+            outputChannels: weight.shape[1],     // weight[1] = out_channels
+            inputHeight: input.shape[2],
+            inputWidth: input.shape[3],
+            kernelHeight: weight.shape[2],
+            kernelWidth: weight.shape[3],
+            outputHeight: outputHeight,
+            outputWidth: outputWidth,
+            padH: padH,
+            padW: padW,
+            strideH: strideH,
+            strideW: strideW,
+        };
+
+        // WORKAROUND: WebGPU 64-channel execution limit
+        // Use splitChannelOperation for kernel and bias
+        const result = splitChannelOperation(
+            params.outputChannels,
+            1, // Channel dimension in NCHW format
+            (startChannel: number, endChannel: number) => {
+                const channelCount = endChannel - startChannel;
+
+                // Slice weight tensor: [in_channels, out_channels, kH, kW]
+                const weightSlice = slice(weight, [null, [startChannel, endChannel], null, null]);
+
+                // Create params for this channel batch
+                const batchParams = { ...params, outputChannels: channelCount };
+
+                // Run kernel for this channel batch
+                return input.runKernel(
+            "conv_transpose2d",
+            { dtype: input.dtype },
+                    batchParams,
+                    [[batchParams.batchSize, channelCount, batchParams.outputHeight, batchParams.outputWidth]],
+                    weightSlice
+        )[0];
+            }
+        );
+
+        // Add bias if provided
+        const finalResult = bias
+            ? splitChannelOperation(
+                bias.shape[0],
+                1, // Channel dimension in NCHW format
+                (startChannel: number, endChannel: number) => {
+                    const channelCount = endChannel - startChannel;
+
+                    // Slice bias: [out_channels]
+                    const biasSlice = slice(bias, [[startChannel, endChannel]]);
+
+                    // Slice result along channel dimension
+                    const resultSlice = slice(result, [null, [startChannel, endChannel], null, null]);
+
+                    // Reshape bias for broadcasting: [1, channels, 1, 1]
+                    const biasReshaped = biasSlice.reshape([1, channelCount, 1, 1]);
+
+                    // Add bias to this channel batch
+                    return resultSlice.add(biasReshaped);
+        }
+            )
+            : result;
+
+        return finalResult;
     }
 }
 
@@ -480,33 +703,33 @@ export function mm(input: Tensor, other: Tensor): Tensor {
     if (shouldCreateGradient(input, other)) {
         throw new Error("mm gradient not supported yet");
     } else {
-        if (input.shape.length !== 2 || other.shape.length !== 2) {
-            throw new Error(
-                `Expected 2D tensors, got ${input.shape} and ${other.shape}`
-            );
-        }
-        if (input.shape[1] !== other.shape[0]) {
-            throw new Error(
-                `Expected tensors inner dimensions to be compatible, got ${input.shape} and ${other.shape}`
-            );
-        }
-        const params = {
-            aRows: input.shape[0],
-            aCols: input.shape[1],
-            bCols: other.shape[1],
-            aRowStride: input.strides[0],
-            aColStride: input.strides[1],
-            bRowStride: other.strides[0],
-            bColStride: other.strides[1],
-            alpha: 1.0,
-        };
-        return input.runKernel(
-            "mm",
-            { resultDtype: input.dtype },
-            params,
-            [[params.aRows, params.bCols]],
-            other
-        )[0];
+    if (input.shape.length !== 2 || other.shape.length !== 2) {
+        throw new Error(
+            `Expected 2D tensors, got ${input.shape} and ${other.shape}`
+        );
+    }
+    if (input.shape[1] !== other.shape[0]) {
+        throw new Error(
+            `Expected tensors inner dimensions to be compatible, got ${input.shape} and ${other.shape}`
+        );
+    }
+    const params = {
+        aRows: input.shape[0],
+        aCols: input.shape[1],
+        bCols: other.shape[1],
+        aRowStride: input.strides[0],
+        aColStride: input.strides[1],
+        bRowStride: other.strides[0],
+        bColStride: other.strides[1],
+        alpha: 1.0,
+    };
+    return input.runKernel(
+        "mm",
+        { resultDtype: input.dtype },
+        params,
+        [[params.aRows, params.bCols]],
+        other
+    )[0];
     }
 }
 
@@ -791,11 +1014,11 @@ export function t(input: Tensor): Tensor {
         throw new Error("t gradient not supported yet");
         // return TransposeFunction.apply(input, 0, 1);
     } else {
-        let newShape = input.shape.slice();
-        newShape.reverse();
-        let newStrides = input.strides.slice();
-        newStrides.reverse();
-        return input.withShape(newShape, newStrides);
+    let newShape = input.shape.slice();
+    newShape.reverse();
+    let newStrides = input.strides.slice();
+    newStrides.reverse();
+    return input.withShape(newShape, newStrides);
     }
 }
 

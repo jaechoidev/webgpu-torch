@@ -45,6 +45,22 @@ export const kernels: { [name: string]: KernelSpec } = {
                 name: "outputWidth",
                 shaderType: "u32",
             },
+            {
+                name: "padH",
+                shaderType: "u32",
+            },
+            {
+                name: "padW",
+                shaderType: "u32",
+            },
+            {
+                name: "strideH",
+                shaderType: "u32",
+            },
+            {
+                name: "strideW",
+                shaderType: "u32",
+            },
         ],
         inputs: [
             {
@@ -64,37 +80,61 @@ export const kernels: { [name: string]: KernelSpec } = {
             },
         ],
         workgroupSize: [4, 4, 1],
-        workgroupCount: ["outputWidth/4", "outputHeight/4", 1],
+        workgroupCount: ["(outputWidth + 3) / 4", "(outputHeight + 3) / 4", 1],
         shader: `
+    // Standard conv2d: output[b,c_out,y,x] = sum over c_in,ky,kx of input[b,c_in,y*stride+ky-pad,x*stride+kx-pad] * weight[c_out,c_in,ky,kx]
+    //
+    // NOTE: This kernel processes ≤64 channels at a time.
+    // The JavaScript layer (ops_artisanal.ts::splitChannelOperation) splits larger channel counts into 64-channel batches.
+    // This avoids the WebGPU/driver bug where loops >64 iterations may not execute correctly.
+
     if (global_id.x >= parameters.outputWidth || global_id.y >= parameters.outputHeight) {
         return;
     }
-    // input shape = [B, C, H, W]
+
     for (var batch = 0u; batch < parameters.batchSize; batch++) {
         for (var outputChannel = 0u; outputChannel < parameters.outputChannels; outputChannel++) {
             var result = 0.0;
-            // Do the convolution
+
+            // Perform convolution
             for (var inputChannel = 0u; inputChannel < parameters.inputChannels; inputChannel++) {
                 for (var kernelY = 0u; kernelY < parameters.kernelHeight; kernelY++) {
                     for (var kernelX = 0u; kernelX < parameters.kernelWidth; kernelX++) {
-                        var inputY = global_id.y + kernelY;
-                        var inputX = global_id.x + kernelX;
+                        // Calculate input coordinates with stride and padding
+                        let inputYWithPad = i32(global_id.y * parameters.strideH + kernelY);
+                        let inputXWithPad = i32(global_id.x * parameters.strideW + kernelX);
+
+                        let inputY = inputYWithPad - i32(parameters.padH);
+                        let inputX = inputXWithPad - i32(parameters.padW);
+
+                        // Check bounds (padding is zero)
+                        if (inputY < 0 || inputY >= i32(parameters.inputHeight) ||
+                            inputX < 0 || inputX >= i32(parameters.inputWidth)) {
+                            continue;
+                        }
+
+                        let inputYUnsigned = u32(inputY);
+                        let inputXUnsigned = u32(inputX);
+
+                        // Calculate indices
                         var inputIndex =
                             batch * parameters.inputChannels * parameters.inputHeight * parameters.inputWidth +
                             inputChannel * parameters.inputHeight * parameters.inputWidth +
-                            inputY * parameters.inputWidth +
-                            inputX;
+                            inputYUnsigned * parameters.inputWidth +
+                            inputXUnsigned;
                         var kernelIndex =
                             outputChannel * parameters.inputChannels * parameters.kernelHeight * parameters.kernelWidth +
                             inputChannel * parameters.kernelHeight * parameters.kernelWidth +
                             kernelY * parameters.kernelWidth +
                             kernelX;
+
                         result = result + input[inputIndex] * weight[kernelIndex];
                     }
                 }
             }
-            // Output
-            let outputIndex = 
+
+            // Write output
+            let outputIndex =
                 batch * parameters.outputChannels * parameters.outputHeight * parameters.outputWidth +
                 outputChannel * parameters.outputHeight * parameters.outputWidth +
                 global_id.y * parameters.outputWidth +
@@ -102,6 +142,172 @@ export const kernels: { [name: string]: KernelSpec } = {
             output[outputIndex] = result;
         }
     }
+`
+    },
+    conv_transpose2d: {
+        name: "conv_transpose2d",
+        config: [
+            {
+                name: "dtype",
+            },
+        ],
+        parameters: [
+            {
+                name: "batchSize",
+                shaderType: "u32",
+            },
+            {
+                name: "inputChannels",
+                shaderType: "u32",
+            },
+            {
+                name: "outputChannels",
+                shaderType: "u32",
+            },
+            {
+                name: "inputHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "inputWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "kernelHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "kernelWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "outputHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "outputWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "padH",
+                shaderType: "u32",
+            },
+            {
+                name: "padW",
+                shaderType: "u32",
+            },
+            {
+                name: "strideH",
+                shaderType: "u32",
+            },
+            {
+                name: "strideW",
+                shaderType: "u32",
+            },
+        ],
+        inputs: [
+            {
+                name: "input",
+                shaderType: "array<f32>",
+            },
+            {
+                name: "weight",
+                shaderType: "array<f32>",
+            },
+        ],
+        outputs: [
+            {
+                name: "output",
+                shaderType: "array<f32>",
+                size: "batchSize * outputChannels * outputHeight * outputWidth",
+            },
+        ],
+        workgroupSize: [16, 16, 1],
+        workgroupCount: [
+            "outputWidth/16",
+            "outputHeight/16",
+            "batchSize * outputChannels",
+        ],
+        shader: `
+    if (global_id.x >= parameters.outputWidth || global_id.y >= parameters.outputHeight) {
+        return;
+    }
+
+    // global_id.z encodes both batch and output channel
+    let batch = global_id.z / parameters.outputChannels;
+    let outputChannel = global_id.z % parameters.outputChannels;
+
+    var result = 0.0;
+
+    // ConvTranspose2d: For each output position (out_h, out_w),
+    // accumulate contributions from all input positions that can reach it.
+    //
+    // Formula: output[out_h, out_w] = sum over all (in_h, in_w, k_h, k_w) where:
+    //   out_h = in_h * stride_h + k_h - pad_h
+    //   out_w = in_w * stride_w + k_w - pad_w
+    //
+    // Rearranged: For a given (out_h, out_w), find all valid (in_h, in_w, k_h, k_w)
+    //   in_h = (out_h + pad_h - k_h) / stride_h  (must be integer and in range)
+    //   in_w = (out_w + pad_w - k_w) / stride_w  (must be integer and in range)
+
+    let out_h = global_id.y;
+    let out_w = global_id.x;
+
+    // Iterate over all kernel positions
+    for (var k_h = 0u; k_h < parameters.kernelHeight; k_h++) {
+        for (var k_w = 0u; k_w < parameters.kernelWidth; k_w++) {
+            // Calculate which input position contributes through this kernel position
+            // out_h = in_h * stride_h + k_h - pad_h
+            // => in_h = (out_h + pad_h - k_h) / stride_h
+
+            // Check if subtraction would underflow (k_h > out_h + padH)
+            // WGSL u32 subtraction wraps on underflow, so we must check first
+            if (k_h > out_h + parameters.padH || k_w > out_w + parameters.padW) {
+                continue;
+            }
+
+            let numerator_h = out_h + parameters.padH - k_h;
+            let numerator_w = out_w + parameters.padW - k_w;
+
+            // Check if division is exact (integer) and result is in valid range
+            if (numerator_h % parameters.strideH == 0u && numerator_w % parameters.strideW == 0u) {
+                let in_h = numerator_h / parameters.strideH;
+                let in_w = numerator_w / parameters.strideW;
+
+                // Check if input position is valid
+                if (in_h < parameters.inputHeight && in_w < parameters.inputWidth) {
+                    // Accumulate contribution from all input channels
+                    for (var inputChannel = 0u; inputChannel < parameters.inputChannels; inputChannel++) {
+                        // Input index: [batch, inputChannel, in_h, in_w]
+                        let inputIndex =
+                            batch * parameters.inputChannels * parameters.inputHeight * parameters.inputWidth +
+                            inputChannel * parameters.inputHeight * parameters.inputWidth +
+                            in_h * parameters.inputWidth +
+                            in_w;
+
+                        // Weight shape for ConvTranspose2d: [inputChannels, outputChannels, kernelHeight, kernelWidth]
+                        // This is DIFFERENT from Conv2d which has [outputChannels, inputChannels, ...]
+                        let weightIndex =
+                            inputChannel * parameters.outputChannels * parameters.kernelHeight * parameters.kernelWidth +
+                            outputChannel * parameters.kernelHeight * parameters.kernelWidth +
+                            k_h * parameters.kernelWidth +
+                            k_w;
+
+                        result = result + input[inputIndex] * weight[weightIndex];
+                    }
+                }
+            }
+        }
+    }
+
+    // Output index: [batch, outputChannel, out_h, out_w]
+    let outputIndex =
+        batch * parameters.outputChannels * parameters.outputHeight * parameters.outputWidth +
+        outputChannel * parameters.outputHeight * parameters.outputWidth +
+        out_h * parameters.outputWidth +
+        out_w;
+
+    output[outputIndex] = result;
 `
     },
     dot: {
@@ -512,7 +718,7 @@ export const kernels: { [name: string]: KernelSpec } = {
         output[outputIndex] = parameters.lowerBound + u * (parameters.upperBound - parameters.lowerBound);
     `
     },
-        gather: {
+    gather: {
         name: "gather",
         config: [
             {
@@ -730,7 +936,7 @@ export const kernels: { [name: string]: KernelSpec } = {
     output[flat_out] = input[flat_input];
 `
     },
-        cat: {
+    cat: {
         name: "cat",
         config: [
             {
