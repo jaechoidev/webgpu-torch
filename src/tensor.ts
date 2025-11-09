@@ -417,14 +417,17 @@ export class Tensor extends TensorBase {
 
         for (let i = 0; i < this.shape.length; i++) {
             const outputIdx = i + offset;
+
             // Handle -1 first (infer dimension size from input)
             if (newShape[outputIdx] === -1) {
                 newShape[outputIdx] = this.shape[i];
             }
 
             if (this.shape[i] === 1) {
+                // Broadcasting dimension: stride = 0
                 newStrides[outputIdx] = 0;
             } else if (this.shape[i] === newShape[outputIdx]) {
+                // Same size: copy existing stride
                 newStrides[outputIdx] = this.strides[i];
             } else {
                 throw new Error(
@@ -434,6 +437,7 @@ export class Tensor extends TensorBase {
         }
 
         // console.log("EXPAND", this.shape, this.strides, "->", newShape, newStrides);
+
         // Create view directly without using withShape (which checks for same size)
         // expand() creates a broadcast view where stride=0 repeats data, so sizes differ
         const node = new ViewNode(this.node, newShape, newStrides);
@@ -712,22 +716,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                     alpha: alpha || 1.0,
                 };
@@ -980,22 +996,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("atan2_strided_", { dtype: this.dtype }, params, other);
@@ -1089,22 +1117,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("copysign_strided_", { dtype: this.dtype }, params, other);
@@ -1295,22 +1335,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("div_strided_", { dtype: this.dtype }, params, other);
@@ -1560,22 +1612,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("hypot_strided_", { dtype: this.dtype }, params, other);
@@ -1630,22 +1694,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("ldexp_strided_", { dtype: this.dtype }, params, other);
@@ -1856,22 +1932,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("logaddexp_strided_", { dtype: this.dtype }, params, other);
@@ -1926,22 +2014,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("logaddexp2_strided_", { dtype: this.dtype }, params, other);
@@ -2015,22 +2115,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("mul_strided_", { dtype: this.dtype }, params, other);
@@ -2143,12 +2255,15 @@ export class Tensor extends TensorBase {
     /**
     * Calculates:
     * ```js
-    * output = input
+    * output = input >= 0 || fract(other) != 0 ? pow(input, other) :
+            pow(-input, other) * ((i32(other) & 1) != 0 ? -1f : 1f)
     * ```
     *
     * Gradient:
     * ```js
-    * inputGrad = outputGrad * other * pow(input, other - 1.0); otherGrad = outputGrad * pow(input, other) * log(input)
+    * inputGrad = input >= 0 || fract(other) != 0 ? outputGrad * other * pow(input, other - 1.0) :
+            outputGrad * other * pow(-input, other - 1) * ((i32(other - 1) & 1) != 0 ? -1f : 1f);
+        otherGrad = outputGrad * pow(input, other) * log(input)
     * ```
     *
     * @param other the other tensor whose shape is broadcastable with the input tensor
@@ -2160,12 +2275,15 @@ export class Tensor extends TensorBase {
     /**
     * Calculates:
     * ```js
-    * output = input
+    * output = input >= 0 || fract(other) != 0 ? pow(input, other) :
+            pow(-input, other) * ((i32(other) & 1) != 0 ? -1f : 1f)
     * ```
     *
     * Gradient:
     * ```js
-    * inputGrad = outputGrad * other * pow(input, other - 1.0); otherGrad = outputGrad * pow(input, other) * log(input)
+    * inputGrad = input >= 0 || fract(other) != 0 ? outputGrad * other * pow(input, other - 1.0) :
+            outputGrad * other * pow(-input, other - 1) * ((i32(other - 1) & 1) != 0 ? -1f : 1f);
+        otherGrad = outputGrad * pow(input, other) * log(input)
     * ```
     *
     * @param other the other tensor whose shape is broadcastable with the input tensor
@@ -2183,22 +2301,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("pow_strided_", { dtype: this.dtype }, params, other);
@@ -2783,22 +2913,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                     alpha: alpha || 1.0,
                 };
@@ -2992,22 +3134,34 @@ export class Tensor extends TensorBase {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return this.runKernelInplace("xlogy_strided_", { dtype: this.dtype }, params, other);
