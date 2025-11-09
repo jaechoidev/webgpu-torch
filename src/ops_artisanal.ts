@@ -21,8 +21,182 @@ import type { TensorData, TensorSpec, MemoryFormat } from "./tensor";
 import { KernelParamsInput } from "./kernel";
 import { GatherFunction, LinearFunction } from "./functions_artisanal";
 
-export function cat(inputs: Tensor[], dim: number): Tensor {
-    throw new Error("cat not implemented yet");
+export function cat(inputs: Tensor[], dim: number = 0): Tensor {
+    if (inputs.length === 0) {
+        throw new Error("cat requires at least one tensor");
+    }
+    if (inputs.length === 1) {
+        return inputs[0];
+    }
+
+    // Normalize negative dimension
+    const ndim = inputs[0].shape.length;
+    if (dim < 0) {
+        dim = ndim + dim;
+    }
+    if (dim < 0 || dim >= ndim) {
+        throw new Error(`Invalid dimension ${dim} for tensor with ${ndim} dimensions`);
+    }
+
+    // Validate all tensors have same rank and compatible shapes
+    for (let i = 1; i < inputs.length; i++) {
+        if (inputs[i].shape.length !== ndim) {
+            throw new Error(`All tensors must have same number of dimensions`);
+        }
+        for (let d = 0; d < ndim; d++) {
+            if (d !== dim && inputs[i].shape[d] !== inputs[0].shape[d]) {
+                throw new Error(`All tensors must have same shape except in concat dimension`);
+            }
+        }
+    }
+
+    // Calculate output shape
+    const outputShape = inputs[0].shape.slice();
+    outputShape[dim] = inputs.reduce((sum, t) => sum + t.shape[dim], 0);
+
+    const dtype = inputs[0].dtype;
+    const device = inputs[0].device;
+
+    // Debug: Check device type
+
+    // If more than 8 inputs, use hierarchical batching (like PyTorch)
+    // Works for both WebGPU and CPU devices
+    if (inputs.length > 8 && ndim <= 6) {
+        // Concatenate in batches of 8
+        const batches: Tensor[] = [];
+        for (let i = 0; i < inputs.length; i += 8) {
+            const batch = inputs.slice(i, Math.min(i + 8, inputs.length));
+            batches.push(cat(batch, dim)); // Recursive call
+        }
+        return cat(batches, dim); // Final concatenation
+    }
+
+    // Check if we can use GPU kernel (up to 8 inputs on WebGPU)
+    if (device.type === "webgpu" && inputs.length <= 8 && ndim <= 6) {
+        const totalSize = outputShape.reduce((a, b) => a * b, 1);
+
+        // Build parameters
+        const params: any = {
+            rank: ndim,
+            dim: dim,
+            outputSize: totalSize,
+            outputShape0: ndim > 0 ? outputShape[0] : 1,
+            outputShape1: ndim > 1 ? outputShape[1] : 1,
+            outputShape2: ndim > 2 ? outputShape[2] : 1,
+            outputShape3: ndim > 3 ? outputShape[3] : 1,
+            outputShape4: ndim > 4 ? outputShape[4] : 1,
+            outputShape5: ndim > 5 ? outputShape[5] : 1,
+            numInputs: inputs.length,
+        };
+
+        // Add parameters for each input (up to 8)
+        for (let i = 0; i < 8; i++) {
+            if (i < inputs.length) {
+                const input = inputs[i];
+                // DimSize is the size along the concatenation dimension
+                params[`input${i}DimSize`] = input.shape[dim];
+                params[`input${i}Stride0`] = ndim > 0 ? input.strides[0] : 1;
+                params[`input${i}Stride1`] = ndim > 1 ? input.strides[1] : 1;
+                params[`input${i}Stride2`] = ndim > 2 ? input.strides[2] : 1;
+                params[`input${i}Stride3`] = ndim > 3 ? input.strides[3] : 1;
+                params[`input${i}Stride4`] = ndim > 4 ? input.strides[4] : 1;
+                params[`input${i}Stride5`] = ndim > 5 ? input.strides[5] : 1;
+            } else {
+                // Dummy values for unused inputs
+                params[`input${i}DimSize`] = 1;
+                params[`input${i}Stride0`] = 1;
+                params[`input${i}Stride1`] = 1;
+                params[`input${i}Stride2`] = 1;
+                params[`input${i}Stride3`] = 1;
+                params[`input${i}Stride4`] = 1;
+                params[`input${i}Stride5`] = 1;
+            }
+        }
+
+        // Build additional inputs array for inputs 1-7
+        const additionalInputs: Tensor[] = [];
+        for (let i = 1; i < 8; i++) {
+            additionalInputs.push(i < inputs.length ? inputs[i] : inputs[0]); // Dummy for unused
+        }
+
+        // Use runKernel on first input, passing additional inputs
+        return inputs[0].runKernel("cat", {dtype}, params, [outputShape], ...additionalInputs)[0];
+    }
+
+    // No WebGPU kernel available - throw descriptive error
+    throw new Error(`cat() on device "${device.type}" with ${inputs.length} inputs and ${ndim}D tensors is not supported. WebGPU kernel only supports ≤8 inputs and ≤6D tensors on WebGPU device. Check that tensors are created on WebGPU device, not CPU.`);
+}
+
+/**
+ * Concatenates a sequence of tensors along a new dimension.
+ * All tensors must have the same shape.
+ *
+ * @param inputs - Sequence of tensors to stack
+ * @param dim - Dimension along which to stack (default: 0)
+ * @returns Stacked tensor with one additional dimension
+ *
+ * Example:
+ *   a = torch.tensor([1, 2, 3])  // shape: [3]
+ *   b = torch.tensor([4, 5, 6])  // shape: [3]
+ *   torch.stack([a, b], dim=0)   // shape: [2, 3]
+ *   torch.stack([a, b], dim=1)   // shape: [3, 2]
+ *
+ * Implementation: Uses batched unsqueeze + cat to avoid exceeding 5D tensor limit
+ */
+export function stack(inputs: Tensor[], dim: number = 0): Tensor {
+    if (inputs.length === 0) {
+        throw new Error("stack requires at least one tensor");
+    }
+    if (inputs.length === 1) {
+        return inputs[0].unsqueeze(dim);
+    }
+
+    // Validate all tensors have same shape
+    const shape = inputs[0].shape;
+    for (let i = 1; i < inputs.length; i++) {
+        if (inputs[i].shape.length !== shape.length) {
+            throw new Error(`All tensors must have same number of dimensions for stack`);
+        }
+        for (let d = 0; d < shape.length; d++) {
+            if (inputs[i].shape[d] !== shape[d]) {
+                throw new Error(`All tensors must have same shape for stack. Got ${inputs[i].shape} vs ${shape}`);
+            }
+        }
+    }
+
+    // Normalize dimension
+    const ndim = shape.length;
+    if (dim < 0) {
+        dim = ndim + 1 + dim;  // +1 because we're adding a dimension
+    }
+    if (dim < 0 || dim > ndim) {
+        throw new Error(`Invalid dimension ${dim} for stack (valid range: [-${ndim+1}, ${ndim}])`);
+    }
+
+    // WORKAROUND for webgpu-torch limitation: cat() only supports ≤6D tensors AND ≤8 inputs
+    if (ndim >= 6) {
+        throw new Error(`stack() would create ${ndim + 1}D tensor, but only ≤6D is supported`);
+    }
+
+    if (inputs.length > 8) {
+        // For >8 inputs, use recursive batching
+        const batchSize = 7;
+        const batches: Tensor[] = [];
+
+        for (let i = 0; i < inputs.length; i += batchSize) {
+            const batchEnd = Math.min(i + batchSize, inputs.length);
+            const batch = inputs.slice(i, batchEnd);
+            // Recursively stack batches
+            batches.push(stack(batch, dim));
+        }
+
+        // Cat the batched stacks along the stack dimension
+        return cat(batches, dim);
+    } else {
+        // Normal case: unsqueeze each tensor at dim, then cat at dim
+        const unsqueezed = inputs.map(t => t.unsqueeze(dim));
+        return cat(unsqueezed, dim);
+    }
 }
 
 export function clone(
