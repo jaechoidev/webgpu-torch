@@ -4,9 +4,9 @@
  * It is recommended to check if any of these can be implemented natively in future versions.
  */
 
-import type { Tensor } from 'webgpu-torch';
-import * as torch from 'webgpu-torch';
-import { registerKernel } from 'webgpu-torch';
+import type { Tensor } from '../tensor';
+import * as torch from '../index';
+import { registerKernel } from '../kernels';
 import { topk4DKernel, topk4DKernelOptimized } from './TopKKernel';
 import { sliceKernel } from './SliceKernel';
 import { transposeKernel } from './TransposeKernel';

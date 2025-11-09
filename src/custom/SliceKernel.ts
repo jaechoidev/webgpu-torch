@@ -5,7 +5,7 @@
  * TODO(PAPR): currently supports tensors up to 5D 
  */
 
-import type { KernelSpec } from 'webgpu-torch';
+import type { KernelSpec } from '../kernel';
 
 /**
  * Generic slice kernel for 1D-5D tensors

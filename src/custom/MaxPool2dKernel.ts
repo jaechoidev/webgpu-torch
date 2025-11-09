@@ -2,7 +2,7 @@
  * MaxPool2d GPU Kernel for WebGPU
  */
 
-import type { KernelSpec } from 'webgpu-torch';
+import type { KernelSpec } from '../kernel';
 
 /**
  * MaxPool2d kernel: [N, C, H, W] -> [N, C, H/2, W/2]

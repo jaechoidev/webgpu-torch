@@ -9,7 +9,7 @@
  * - For our case: input [N, H, W, M] -> output [N, H, W, k]
 */
 
-import type { KernelSpec } from 'webgpu-torch';
+import type { KernelSpec } from '../kernel';
 
 /**
  * TopK kernel for 4D tensors along last dimension
