@@ -410,26 +410,36 @@ export class Tensor extends TensorBase {
 
     expand(shape: Shape): Tensor {
         const newShape = shape.slice();
-        const newStrides = Array(newShape.length).fill(0);
-        // Update newStrides based on the current strides
-        // so that the expansion happens
-        // in the correct direction
-        let j = newShape.length - 1;
-        let thisShape = this.shape;
-        let thisStrides = this.strides;
-        for (let i = thisShape.length - 1; i >= 0; i--) {
-            if (thisShape[i] === 1) {
-                newStrides[j] = 0;
-            } else {
-                newStrides[j] = thisStrides[i];
-                j--;
+        const newStrides = new Array(newShape.length).fill(0);
+
+        // Align dimensions from the right (broadcasting rule)
+        const offset = newShape.length - this.shape.length;
+
+        for (let i = 0; i < this.shape.length; i++) {
+            const outputIdx = i + offset;
+            // Handle -1 first (infer dimension size from input)
+            if (newShape[outputIdx] === -1) {
+                newShape[outputIdx] = this.shape[i];
             }
-            if (newShape[j] === -1) {
-                newShape[j] = thisShape[i];
+
+            if (this.shape[i] === 1) {
+                newStrides[outputIdx] = 0;
+            } else if (this.shape[i] === newShape[outputIdx]) {
+                newStrides[outputIdx] = this.strides[i];
+            } else {
+                throw new Error(
+                    `Cannot expand dimension ${i} from size ${this.shape[i]} to ${newShape[outputIdx]}`
+                );
             }
         }
-        // console.log("EXPAND", this.shape, this.strides, shape, newShape, newStrides);
-        return this.withShape(newShape, newStrides);
+
+        // console.log("EXPAND", this.shape, this.strides, "->", newShape, newStrides);
+        // Create view directly without using withShape (which checks for same size)
+        // expand() creates a broadcast view where stride=0 repeats data, so sizes differ
+        const node = new ViewNode(this.node, newShape, newStrides);
+        const output = new Tensor(node.getOutputRef(0));
+        output.requiresGrad = this.requiresGrad;
+        return output;
     }
     flatten(startDim: number = 0, endDim: number = -1): Tensor {
         return aops.flatten(this, startDim, endDim);
