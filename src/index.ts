@@ -31,3 +31,6 @@ export * from "./shape";
 export { TensorArrayData, UntypedStorage } from "./storage";
 export * from "./tensor";
 export { hasWebGPU, initWebGPUAsync } from "./webgpu";
+
+// Custom kernels and operations - export as namespace
+export * as custom from "./custom/WebGPUKernels";
