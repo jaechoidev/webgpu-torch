@@ -511,5 +511,223 @@ export const kernels: { [name: string]: KernelSpec } = {
 
         output[outputIndex] = parameters.lowerBound + u * (parameters.upperBound - parameters.lowerBound);
     `
+    },
+        gather: {
+        name: "gather",
+        config: [
+            {
+                name: "dtype",
+            },
+        ],
+        parameters: [
+            {
+                name: "dim",
+                shaderType: "u32",
+            },
+            {
+                name: "outputSize",
+                shaderType: "u32",
+            },
+            {
+                name: "rank",
+                shaderType: "u32",
+            },
+            {
+                name: "inputShape0",
+                shaderType: "u32",
+            },
+            {
+                name: "inputShape1",
+                shaderType: "u32",
+            },
+            {
+                name: "inputShape2",
+                shaderType: "u32",
+            },
+            {
+                name: "inputShape3",
+                shaderType: "u32",
+            },
+            {
+                name: "inputShape4",
+                shaderType: "u32",
+            },
+            {
+                name: "inputStride0",
+                shaderType: "u32",
+            },
+            {
+                name: "inputStride1",
+                shaderType: "u32",
+            },
+            {
+                name: "inputStride2",
+                shaderType: "u32",
+            },
+            {
+                name: "inputStride3",
+                shaderType: "u32",
+            },
+            {
+                name: "inputStride4",
+                shaderType: "u32",
+            },
+            {
+                name: "indexStride0",
+                shaderType: "u32",
+            },
+            {
+                name: "indexStride1",
+                shaderType: "u32",
+            },
+            {
+                name: "indexStride2",
+                shaderType: "u32",
+            },
+            {
+                name: "indexStride3",
+                shaderType: "u32",
+            },
+            {
+                name: "indexStride4",
+                shaderType: "u32",
+            },
+            {
+                name: "outputShape0",
+                shaderType: "u32",
+            },
+            {
+                name: "outputShape1",
+                shaderType: "u32",
+            },
+            {
+                name: "outputShape2",
+                shaderType: "u32",
+            },
+            {
+                name: "outputShape3",
+                shaderType: "u32",
+            },
+            {
+                name: "outputShape4",
+                shaderType: "u32",
+            },
+        ],
+        inputs: [
+            {
+                name: "input",
+                shaderType: "array<f32>",
+            },
+            {
+                name: "index",
+                shaderType: "array<f32>",  // FIXED: was i32, but torch.tensor() creates f32 by default
+            },
+        ],
+        outputs: [
+            {
+                name: "output",
+                shaderType: "array<f32>",
+                size: "outputSize",
+            },
+        ],
+        workgroupSize: [256, 1, 1],
+        workgroupCount: ["65535", "((outputSize + 255) / 256 + 65534) / 65535", 1],
+        shader: `
+    let flat_out = global_id.x + global_id.y * 65535u * 256u;
+    if (flat_out >= parameters.outputSize) {
+        return;
+    }
+
+    let rank = parameters.rank;
+    let dim = parameters.dim;
+
+    // Unroll the algorithm for up to 5D
+    // We can't use dynamic array indexing in WGSL, so we unroll manually
+
+    // Step 1: Convert flat output index to coordinates
+    var coord0 = 0u;
+    var coord1 = 0u;
+    var coord2 = 0u;
+    var coord3 = 0u;
+    var coord4 = 0u;
+
+    if (rank == 1u) {
+        coord0 = flat_out;
+    } else if (rank == 2u) {
+        let s1 = parameters.outputShape1;
+        coord0 = flat_out / s1;
+        coord1 = flat_out % s1;
+    } else if (rank == 3u) {
+        let s1 = parameters.outputShape1;
+        let s2 = parameters.outputShape2;
+        let s12 = s1 * s2;
+        coord0 = flat_out / s12;
+        let rem = flat_out % s12;
+        coord1 = rem / s2;
+        coord2 = rem % s2;
+    } else if (rank == 4u) {
+        let s1 = parameters.outputShape1;
+        let s2 = parameters.outputShape2;
+        let s3 = parameters.outputShape3;
+        let s123 = s1 * s2 * s3;
+        let s23 = s2 * s3;
+        coord0 = flat_out / s123;
+        var rem = flat_out % s123;
+        coord1 = rem / s23;
+        rem = rem % s23;
+        coord2 = rem / s3;
+        coord3 = rem % s3;
+    } else if (rank == 5u) {
+        let s1 = parameters.outputShape1;
+        let s2 = parameters.outputShape2;
+        let s3 = parameters.outputShape3;
+        let s4 = parameters.outputShape4;
+        let s1234 = s1 * s2 * s3 * s4;
+        let s234 = s2 * s3 * s4;
+        let s34 = s3 * s4;
+        coord0 = flat_out / s1234;
+        var rem = flat_out % s1234;
+        coord1 = rem / s234;
+        rem = rem % s234;
+        coord2 = rem / s34;
+        rem = rem % s34;
+        coord3 = rem / s4;
+        coord4 = rem % s4;
+    }
+
+    // Step 2: Get index value from index tensor
+    var flat_index = 0u;
+    if (rank >= 1u) { flat_index = flat_index + coord0 * parameters.indexStride0; }
+    if (rank >= 2u) { flat_index = flat_index + coord1 * parameters.indexStride1; }
+    if (rank >= 3u) { flat_index = flat_index + coord2 * parameters.indexStride2; }
+    if (rank >= 4u) { flat_index = flat_index + coord3 * parameters.indexStride3; }
+    if (rank >= 5u) { flat_index = flat_index + coord4 * parameters.indexStride4; }
+
+    let idx_value = u32(index[flat_index]);
+
+    // Step 3: Build input coordinates (replace dim coordinate with idx_value)
+    var in0 = coord0;
+    var in1 = coord1;
+    var in2 = coord2;
+    var in3 = coord3;
+    var in4 = coord4;
+
+    if (dim == 0u) { in0 = idx_value; }
+    else if (dim == 1u) { in1 = idx_value; }
+    else if (dim == 2u) { in2 = idx_value; }
+    else if (dim == 3u) { in3 = idx_value; }
+    else if (dim == 4u) { in4 = idx_value; }
+
+    // Step 4: Convert input coordinates to flat index
+    var flat_input = 0u;
+    if (rank >= 1u) { flat_input = flat_input + in0 * parameters.inputStride0; }
+    if (rank >= 2u) { flat_input = flat_input + in1 * parameters.inputStride1; }
+    if (rank >= 3u) { flat_input = flat_input + in2 * parameters.inputStride2; }
+    if (rank >= 4u) { flat_input = flat_input + in3 * parameters.inputStride3; }
+    if (rank >= 5u) { flat_input = flat_input + in4 * parameters.inputStride4; }
+
+    // Step 5: Perform gather
+    output[flat_out] = input[flat_input];
+`
     }
 };
