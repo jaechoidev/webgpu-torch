@@ -19,7 +19,21 @@ export async function discoverWebGPUDevicesAsync(): Promise<boolean> {
         return true;
     }
     const adapter = await (navigator as any).gpu.requestAdapter();
-    const device = await adapter.requestDevice();
+
+    // Check if timestamp-query feature is supported
+    const canTimestamp = adapter.features.has('timestamp-query');
+    console.log(`[WebGPU] timestamp-query support: ${canTimestamp}`);
+
+    const device = await adapter.requestDevice({
+        requiredLimits: {
+            maxStorageBuffersPerShaderStage: 10,
+            maxBufferSize: 2147483648,  // 2GB
+            maxStorageBufferBindingSize: 2147483644  // 2GB - 4 bytes
+        },
+        requiredFeatures: [
+            ...(canTimestamp ? ['timestamp-query' as GPUFeatureName] : [])
+        ]
+    });
     const dev = new DeviceWebGPU(id, adapter, device);
     devices[id] = dev;
     webgpuDevice = dev;
