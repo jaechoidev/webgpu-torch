@@ -9,10 +9,43 @@ import { shapeSize, defaultStrides, broadcastShapes, stridedShapeIsContiguous } 
 export class AbsFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("abs", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("abs_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("abs", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -33,10 +66,43 @@ export class AbsFunction extends AutoFunction {
 export class AcosFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("acos", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("acos_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("acos", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -57,10 +123,43 @@ export class AcosFunction extends AutoFunction {
 export class AcoshFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("acosh", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("acosh_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("acosh", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -93,22 +192,34 @@ export class AddFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                     alpha: alpha || 1.0,
                 };
@@ -155,10 +266,43 @@ export class AddFunction extends AutoFunction {
 export class AsinFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("asin", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("asin_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("asin", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -179,10 +323,43 @@ export class AsinFunction extends AutoFunction {
 export class AsinhFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("asinh", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("asinh_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("asinh", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -203,10 +380,43 @@ export class AsinhFunction extends AutoFunction {
 export class AtanFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("atan", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("atan_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("atan", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -238,22 +448,34 @@ export class Atan2Function extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("atan2_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -295,10 +517,43 @@ export class Atan2Function extends AutoFunction {
 export class CeilFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("ceil", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("ceil_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("ceil", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -330,22 +585,34 @@ export class CopysignFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("copysign_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -387,10 +654,43 @@ export class CopysignFunction extends AutoFunction {
 export class CosFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("cos", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("cos_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("cos", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -411,10 +711,43 @@ export class CosFunction extends AutoFunction {
 export class CoshFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("cosh", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("cosh_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("cosh", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -435,10 +768,43 @@ export class CoshFunction extends AutoFunction {
 export class Deg2radFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("deg2rad", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("deg2rad_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("deg2rad", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -470,22 +836,34 @@ export class DivFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("div_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -527,10 +905,43 @@ export class DivFunction extends AutoFunction {
 export class ExpFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("exp", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("exp_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("exp", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -551,10 +962,43 @@ export class ExpFunction extends AutoFunction {
 export class Exp2Function extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("exp2", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("exp2_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("exp2", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -575,10 +1019,43 @@ export class Exp2Function extends AutoFunction {
 export class Expm1Function extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("expm1", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("expm1_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("expm1", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -599,10 +1076,43 @@ export class Expm1Function extends AutoFunction {
 export class FloorFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("floor", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("floor_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("floor", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -623,10 +1133,43 @@ export class FloorFunction extends AutoFunction {
 export class FracFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("frac", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("frac_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("frac", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -658,22 +1201,34 @@ export class HypotFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("hypot_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -726,22 +1281,34 @@ export class LdexpFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("ldexp_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -783,10 +1350,43 @@ export class LdexpFunction extends AutoFunction {
 export class LogFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("log", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -807,10 +1407,43 @@ export class LogFunction extends AutoFunction {
 export class Log10Function extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("log10", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log10_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log10", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -831,10 +1464,43 @@ export class Log10Function extends AutoFunction {
 export class Log1pFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("log1p", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log1p_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log1p", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -855,10 +1521,43 @@ export class Log1pFunction extends AutoFunction {
 export class Log2Function extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("log2", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log2_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("log2", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -890,22 +1589,34 @@ export class LogaddexpFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("logaddexp_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -958,22 +1669,34 @@ export class Logaddexp2Function extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("logaddexp2_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -1026,22 +1749,34 @@ export class MulFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("mul_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -1083,10 +1818,43 @@ export class MulFunction extends AutoFunction {
 export class NegFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("neg", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("neg_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("neg", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1107,10 +1875,43 @@ export class NegFunction extends AutoFunction {
 export class PositiveFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("positive", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("positive_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("positive", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1142,22 +1943,34 @@ export class PowFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("pow_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -1199,10 +2012,43 @@ export class PowFunction extends AutoFunction {
 export class Rad2degFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("rad2deg", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("rad2deg_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("rad2deg", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1223,10 +2069,43 @@ export class Rad2degFunction extends AutoFunction {
 export class ReciprocalFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("reciprocal", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("reciprocal_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("reciprocal", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1247,10 +2126,43 @@ export class ReciprocalFunction extends AutoFunction {
 export class ReluFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("relu", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("relu_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("relu", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1271,10 +2183,43 @@ export class ReluFunction extends AutoFunction {
 export class RoundFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("round", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("round_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("round", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1295,10 +2240,43 @@ export class RoundFunction extends AutoFunction {
 export class RsqrtFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("rsqrt", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("rsqrt_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("rsqrt", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1319,10 +2297,43 @@ export class RsqrtFunction extends AutoFunction {
 export class SigmoidFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("sigmoid", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sigmoid_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sigmoid", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1343,10 +2354,43 @@ export class SigmoidFunction extends AutoFunction {
 export class SignFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("sign", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sign_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sign", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1367,10 +2411,43 @@ export class SignFunction extends AutoFunction {
 export class SiluFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("silu", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("silu_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("silu", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1391,10 +2468,43 @@ export class SiluFunction extends AutoFunction {
 export class SinFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("sin", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sin_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sin", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1415,10 +2525,43 @@ export class SinFunction extends AutoFunction {
 export class SincFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("sinc", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sinc_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sinc", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1439,10 +2582,43 @@ export class SincFunction extends AutoFunction {
 export class SinhFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("sinh", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sinh_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sinh", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1463,10 +2639,43 @@ export class SinhFunction extends AutoFunction {
 export class SqrtFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("sqrt", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sqrt_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("sqrt", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1487,10 +2696,43 @@ export class SqrtFunction extends AutoFunction {
 export class SquareFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("square", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("square_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("square", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1523,22 +2765,34 @@ export class SubFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                     alpha: alpha || 1.0,
                 };
@@ -1585,10 +2839,43 @@ export class SubFunction extends AutoFunction {
 export class TanFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("tan", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("tan_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("tan", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1609,10 +2896,43 @@ export class TanFunction extends AutoFunction {
 export class TanhFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("tanh", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("tanh_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("tanh", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1633,10 +2953,43 @@ export class TanhFunction extends AutoFunction {
 export class TruncFunction extends AutoFunction {
     static forward(inputs: FunctionInput[]): Tensor {
         const [input] = inputs as [Tensor];
-        const params = {
-            size: shapeSize(input.shape),
-        };
-        return input.runKernel("trunc", {"dtype":"float32"}, params, [input.shape])[0];
+        if (!stridedShapeIsContiguous(input)) {
+            const inputDims = input.shape.length;
+            if (inputDims > 5) {
+                throw new Error("Unary operations not supported for tensors with more than 5 dimensions");
+            }
+            const outputStrides = defaultStrides(input.shape);
+            const params = {
+                // Output shapes (needed for index decomposition)
+                outputShape0: inputDims > 0 ? input.shape[0] : 1,
+                outputShape1: inputDims > 1 ? input.shape[1] : 1,
+                outputShape2: inputDims > 2 ? input.shape[2] : 1,
+                outputShape3: inputDims > 3 ? input.shape[3] : 1,
+                outputShape4: inputDims > 4 ? input.shape[4] : 1,
+                outputShape5: inputDims > 5 ? input.shape[5] : 1,
+                // Input strides (actual memory layout)
+                inputStride0: inputDims > 0 ? input.strides[0] : 0,
+                inputStride1: inputDims > 1 ? input.strides[1] : 0,
+                inputStride2: inputDims > 2 ? input.strides[2] : 0,
+                inputStride3: inputDims > 3 ? input.strides[3] : 0,
+                inputStride4: inputDims > 4 ? input.strides[4] : 0,
+                inputStride5: inputDims > 5 ? input.strides[5] : 0,
+                // Output strides (contiguous)
+                outputStride0: input.shape.length > 0 ? outputStrides[0] : 0,
+                outputStride1: input.shape.length > 1 ? outputStrides[1] : 0,
+                outputStride2: input.shape.length > 2 ? outputStrides[2] : 0,
+                outputStride3: input.shape.length > 3 ? outputStrides[3] : 0,
+                outputStride4: input.shape.length > 4 ? outputStrides[4] : 0,
+                outputStride5: input.shape.length > 5 ? outputStrides[5] : 0,
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("trunc_strided", {"dtype":"float32"}, params, [input.shape])[0];
+        } else {
+            const params = {
+                size: shapeSize(input.shape),
+            };
+            return input.runKernel("trunc", {"dtype":"float32"}, params, [input.shape])[0];
+        }
     }
     static setupContext(
         ctx: GradientContext,
@@ -1668,22 +3021,34 @@ export class XlogyFunction extends AutoFunction {
             if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {
                 const inputDims = broadcasted.a.shape.length;
                 const otherDims = broadcasted.b.shape.length;
-                if (inputDims > 4 || otherDims > 4) {
-                    throw new Error("Broadcasting not supported for tensors with more than 4 dimensions");
+                if (inputDims > 5 || otherDims > 5) {
+                    throw new Error("Broadcasting not supported for tensors with more than 5 dimensions");
                 }
+                const outputDims = broadcasted.output.shape.length;
                 const params = {
+                    // Output shapes (needed for index decomposition)
+                    outputShape0: outputDims > 0 ? broadcasted.output.shape[0] : 1,
+                    outputShape1: outputDims > 1 ? broadcasted.output.shape[1] : 1,
+                    outputShape2: outputDims > 2 ? broadcasted.output.shape[2] : 1,
+                    outputShape3: outputDims > 3 ? broadcasted.output.shape[3] : 1,
+                    outputShape4: outputDims > 4 ? broadcasted.output.shape[4] : 1,
+                    outputShape5: outputDims > 5 ? broadcasted.output.shape[5] : 1,
+                    // Strides
                     inputStrides0: inputDims > 0 ? broadcasted.a.strides[0] : 0,
                     otherStrides0: otherDims > 0 ? broadcasted.b.strides[0] : 0,
-                    outputStrides0: broadcasted.output.shape.length > 0 ? broadcasted.output.strides[0] : 1,
+                    outputStrides0: outputDims > 0 ? broadcasted.output.strides[0] : 1,
                     inputStrides1: inputDims > 1 ? broadcasted.a.strides[1] : 0,
                     otherStrides1: otherDims > 1 ? broadcasted.b.strides[1] : 0,
-                    outputStrides1: broadcasted.output.shape.length > 1 ? broadcasted.output.strides[1] : 1,
+                    outputStrides1: outputDims > 1 ? broadcasted.output.strides[1] : 1,
                     inputStrides2: inputDims > 2 ? broadcasted.a.strides[2] : 0,
                     otherStrides2: otherDims > 2 ? broadcasted.b.strides[2] : 0,
-                    outputStrides2: broadcasted.output.shape.length > 2 ? broadcasted.output.strides[2] : 1,
+                    outputStrides2: outputDims > 2 ? broadcasted.output.strides[2] : 1,
                     inputStrides3: inputDims > 3 ? broadcasted.a.strides[3] : 0,
                     otherStrides3: otherDims > 3 ? broadcasted.b.strides[3] : 0,
-                    outputStrides3: broadcasted.output.shape.length > 3 ? broadcasted.output.strides[3] : 1,
+                    outputStrides3: outputDims > 3 ? broadcasted.output.strides[3] : 1,
+                    inputStrides4: inputDims > 4 ? broadcasted.a.strides[4] : 0,
+                    otherStrides4: otherDims > 4 ? broadcasted.b.strides[4] : 0,
+                    outputStrides4: outputDims > 4 ? broadcasted.output.strides[4] : 1,
                     size: shapeSize(broadcasted.output.shape),
                 };
                 return input.runKernel("xlogy_strided", {"dtype":"float32"}, params, [broadcasted.output.shape], other)[0];
@@ -1746,6 +3111,9 @@ export class AllFunction extends AutoFunction {
                     inputShape3: input.shape.length > 3 ? input.shape[3] : 1,
                     inputStride3: input.shape.length > 3 ? input.strides[3] : 1,
                     outputStride3: outputShape.length > 3 ? outputStrides[3] : 1,
+                    inputShape4: input.shape.length > 4 ? input.shape[4] : 1,
+                    inputStride4: input.shape.length > 4 ? input.strides[4] : 1,
+                    outputStride4: outputShape.length > 4 ? outputStrides[4] : 1,
                 };
                 if (!keepdim) outputShape.splice(dim, 1);
                 return input.runKernel("all_dim", {dim,maxdim:inputShape.length,dtype:"float32"}, params, [outputShape])[0];
@@ -1814,6 +3182,9 @@ export class AnyFunction extends AutoFunction {
                     inputShape3: input.shape.length > 3 ? input.shape[3] : 1,
                     inputStride3: input.shape.length > 3 ? input.strides[3] : 1,
                     outputStride3: outputShape.length > 3 ? outputStrides[3] : 1,
+                    inputShape4: input.shape.length > 4 ? input.shape[4] : 1,
+                    inputStride4: input.shape.length > 4 ? input.strides[4] : 1,
+                    outputStride4: outputShape.length > 4 ? outputStrides[4] : 1,
                 };
                 if (!keepdim) outputShape.splice(dim, 1);
                 return input.runKernel("any_dim", {dim,maxdim:inputShape.length,dtype:"float32"}, params, [outputShape])[0];
@@ -1882,6 +3253,9 @@ export class MeanFunction extends AutoFunction {
                     inputShape3: input.shape.length > 3 ? input.shape[3] : 1,
                     inputStride3: input.shape.length > 3 ? input.strides[3] : 1,
                     outputStride3: outputShape.length > 3 ? outputStrides[3] : 1,
+                    inputShape4: input.shape.length > 4 ? input.shape[4] : 1,
+                    inputStride4: input.shape.length > 4 ? input.strides[4] : 1,
+                    outputStride4: outputShape.length > 4 ? outputStrides[4] : 1,
                 };
                 if (!keepdim) outputShape.splice(dim, 1);
                 return input.runKernel("mean_dim", {dim,maxdim:inputShape.length,dtype:"float32"}, params, [outputShape])[0];
@@ -1950,6 +3324,9 @@ export class NormFunction extends AutoFunction {
                     inputShape3: input.shape.length > 3 ? input.shape[3] : 1,
                     inputStride3: input.shape.length > 3 ? input.strides[3] : 1,
                     outputStride3: outputShape.length > 3 ? outputStrides[3] : 1,
+                    inputShape4: input.shape.length > 4 ? input.shape[4] : 1,
+                    inputStride4: input.shape.length > 4 ? input.strides[4] : 1,
+                    outputStride4: outputShape.length > 4 ? outputStrides[4] : 1,
                 };
                 if (!keepdim) outputShape.splice(dim, 1);
                 return input.runKernel("norm_dim", {dim,maxdim:inputShape.length,dtype:"float32"}, params, [outputShape])[0];
@@ -2018,6 +3395,9 @@ export class ProdFunction extends AutoFunction {
                     inputShape3: input.shape.length > 3 ? input.shape[3] : 1,
                     inputStride3: input.shape.length > 3 ? input.strides[3] : 1,
                     outputStride3: outputShape.length > 3 ? outputStrides[3] : 1,
+                    inputShape4: input.shape.length > 4 ? input.shape[4] : 1,
+                    inputStride4: input.shape.length > 4 ? input.strides[4] : 1,
+                    outputStride4: outputShape.length > 4 ? outputStrides[4] : 1,
                 };
                 if (!keepdim) outputShape.splice(dim, 1);
                 return input.runKernel("prod_dim", {dim,maxdim:inputShape.length,dtype:"float32"}, params, [outputShape])[0];
@@ -2086,6 +3466,9 @@ export class SumFunction extends AutoFunction {
                     inputShape3: input.shape.length > 3 ? input.shape[3] : 1,
                     inputStride3: input.shape.length > 3 ? input.strides[3] : 1,
                     outputStride3: outputShape.length > 3 ? outputStrides[3] : 1,
+                    inputShape4: input.shape.length > 4 ? input.shape[4] : 1,
+                    inputStride4: input.shape.length > 4 ? input.strides[4] : 1,
+                    outputStride4: outputShape.length > 4 ? outputStrides[4] : 1,
                 };
                 if (!keepdim) outputShape.splice(dim, 1);
                 return input.runKernel("sum_dim", {dim,maxdim:inputShape.length,dtype:"float32"}, params, [outputShape])[0];
@@ -2154,6 +3537,9 @@ export class CountNonzeroFunction extends AutoFunction {
                     inputShape3: input.shape.length > 3 ? input.shape[3] : 1,
                     inputStride3: input.shape.length > 3 ? input.strides[3] : 1,
                     outputStride3: outputShape.length > 3 ? outputStrides[3] : 1,
+                    inputShape4: input.shape.length > 4 ? input.shape[4] : 1,
+                    inputStride4: input.shape.length > 4 ? input.strides[4] : 1,
+                    outputStride4: outputShape.length > 4 ? outputStrides[4] : 1,
                 };
                 if (!keepdim) outputShape.splice(dim, 1);
                 return input.runKernel("countNonzero_dim", {dim,maxdim:inputShape.length,dtype:"float32"}, params, [outputShape])[0];
