@@ -1,16 +1,12 @@
-export {
+export type {
     FunctionInput,
-    GradientContext,
     GradientFunction,
     GradientFunctionOutput,
 } from "./autograd";
-export { ATypedArray, Dtype } from "./dtype";
-export { Device, Deviceish, DeviceId, DeviceType } from "./device";
-export { CompiledExpr, EvalEnv, ExprCode } from "./expr";
-export * from "./factories";
-export * as init from "./init";
-export {
-    Kernel,
+export type { ATypedArray, Dtype } from "./dtype";
+export type { Deviceish, DeviceId, DeviceType } from "./device";
+export type { CompiledExpr, EvalEnv, ExprCode } from "./expr";
+export type {
     KernelConfig,
     KernelConfigInput,
     KernelConfigSpec,
@@ -22,13 +18,20 @@ export {
     KernelSpec,
     ShaderType,
 } from "./kernel";
-export { OpSpec, OpType } from "./op_spec";
+export type { OpSpec, OpType } from "./op_spec";
+export type { TensorArrayData } from "./storage";
+export { Kernel } from "./kernel";
+export { GradientContext } from "./autograd";
+export { Device } from "./device";
+export * from "./factories";
+export * as init from "./init";
+export { registerKernel, registerKernels } from "./kernels";
+export { getDevice, cpuDevice, discoverWebGPUDevicesAsync } from "./devices";
 export * from "./ops_opgen";
 export * from "./ops_artisanal";
 export * as nn from "./nn";
 export * from "./serialization";
 export * from "./shape";
-export { TensorArrayData, UntypedStorage } from "./storage";
 export * from "./tensor";
 export { hasWebGPU, initWebGPUAsync } from "./webgpu";
 
