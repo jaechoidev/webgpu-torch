@@ -72,7 +72,7 @@ function writeReductionParams(sizeShapeName: string, dimName: string | null, w: 
     w.indent();
     w.writeLine(`size: shapeSize(${sizeShapeName}),`);
     if (dimName) {
-        for (let dim = 0; dim < 4; dim++) {
+        for (let dim = 0; dim < 5; dim++) {
             w.writeLine(`inputShape${dim}: input.shape.length > ${dim} ? input.shape[${dim}] : 1,`);
             w.writeLine(`inputStride${dim}: input.shape.length > ${dim} ? input.strides[${dim}] : 1,`);
             w.writeLine(`outputStride${dim}: outputShape.length > ${dim} ? outputStrides[${dim}] : 1,`);
@@ -113,7 +113,7 @@ function writeTensorCode(): void {
                 w.writeLine(`if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {`);
                 w.indent();
                 // Build broadcasted params
-                const maxdim = 4;
+                const maxdim = 5;  // Support up to 5D tensors (was 4)
                 w.writeLine(`const inputDims = broadcasted.a.shape.length;`);
                 w.writeLine(`const otherDims = broadcasted.b.shape.length;`);
                 w.writeLine(`if (inputDims > ${maxdim} || otherDims > ${maxdim}) {`);
@@ -121,12 +121,18 @@ function writeTensorCode(): void {
                 w.writeLine(`throw new Error("Broadcasting not supported for tensors with more than ${maxdim} dimensions");`);
                 w.dedent();
                 w.writeLine(`}`);
+                w.writeLine(`const outputDims = broadcasted.output.shape.length;`);
                 w.writeLine(`const params = {`);
                 w.indent();
+                w.writeLine(`// Output shapes (needed for index decomposition)`);
+                for (let dim = 0; dim < maxdim + 1; ++dim) {
+                    w.writeLine(`outputShape${dim}: outputDims > ${dim} ? broadcasted.output.shape[${dim}] : 1,`);
+                }
+                w.writeLine(`// Strides`);
                 for (let dim = 0; dim < maxdim; ++dim) {
                     w.writeLine(`inputStrides${dim}: inputDims > ${dim} ? broadcasted.a.strides[${dim}] : 0,`);
                     w.writeLine(`otherStrides${dim}: otherDims > ${dim} ? broadcasted.b.strides[${dim}] : 0,`);
-                    w.writeLine(`outputStrides${dim}: broadcasted.output.shape.length > ${dim} ? broadcasted.output.strides[${dim}] : 1,`);
+                    w.writeLine(`outputStrides${dim}: outputDims > ${dim} ? broadcasted.output.strides[${dim}] : 1,`);
                 }
                 w.writeLine(`size: shapeSize(broadcasted.output.shape),`);
                 if (hasAlpha) {
@@ -358,7 +364,7 @@ import { shapeSize, defaultStrides, broadcastShapes, stridedShapeIsContiguous } 
             w.writeLine(`if (!stridedShapeIsContiguous(broadcasted.a) || !stridedShapeIsContiguous(broadcasted.b)) {`);
             w.indent();
             // Build broadcasted params
-            const maxdim = 4;
+            const maxdim = 5;  // Support up to 5D tensors (was 4)
             w.writeLine(`const inputDims = broadcasted.a.shape.length;`);
             w.writeLine(`const otherDims = broadcasted.b.shape.length;`);
             w.writeLine(`if (inputDims > ${maxdim} || otherDims > ${maxdim}) {`);
@@ -366,12 +372,18 @@ import { shapeSize, defaultStrides, broadcastShapes, stridedShapeIsContiguous } 
             w.writeLine(`throw new Error("Broadcasting not supported for tensors with more than ${maxdim} dimensions");`);
             w.dedent();
             w.writeLine(`}`);
+            w.writeLine(`const outputDims = broadcasted.output.shape.length;`);
             w.writeLine(`const params = {`);
             w.indent();
+            w.writeLine(`// Output shapes (needed for index decomposition)`);
+            for (let dim = 0; dim < maxdim + 1; ++dim) {
+                w.writeLine(`outputShape${dim}: outputDims > ${dim} ? broadcasted.output.shape[${dim}] : 1,`);
+            }
+            w.writeLine(`// Strides`);
             for (let dim = 0; dim < maxdim; ++dim) {
                 w.writeLine(`inputStrides${dim}: inputDims > ${dim} ? broadcasted.a.strides[${dim}] : 0,`);
                 w.writeLine(`otherStrides${dim}: otherDims > ${dim} ? broadcasted.b.strides[${dim}] : 0,`);
-                w.writeLine(`outputStrides${dim}: broadcasted.output.shape.length > ${dim} ? broadcasted.output.strides[${dim}] : 1,`);
+                w.writeLine(`outputStrides${dim}: outputDims > ${dim} ? broadcasted.output.strides[${dim}] : 1,`);
             }
             w.writeLine(`size: shapeSize(broadcasted.output.shape),`);
             if (hasAlpha) {
@@ -397,8 +409,44 @@ import { shapeSize, defaultStrides, broadcastShapes, stridedShapeIsContiguous } 
             w.writeLine(`}`);
         }
         else {
+            // Unary operation - check if strided support is needed
+            w.writeLine(`if (!stridedShapeIsContiguous(input)) {`);
+            w.indent();
+            w.writeLine(`const inputDims = input.shape.length;`);
+            w.writeLine(`if (inputDims > 5) {`);
+            w.indent();
+            w.writeLine(`throw new Error("Unary operations not supported for tensors with more than 5 dimensions");`);
+            w.dedent();
+            w.writeLine(`}`);
+            w.writeLine(`const outputStrides = defaultStrides(input.shape);`);
+            w.writeLine(`const params = {`);
+            w.indent();
+            w.writeLine(`// Output shapes (needed for index decomposition)`);
+            for (let dim = 0; dim <= 5; ++dim) {
+                w.writeLine(`outputShape${dim}: inputDims > ${dim} ? input.shape[${dim}] : 1,`);
+            }
+            w.writeLine(`// Input strides (actual memory layout)`);
+            for (let dim = 0; dim <= 5; ++dim) {
+                w.writeLine(`inputStride${dim}: inputDims > ${dim} ? input.strides[${dim}] : 0,`);
+            }
+            w.writeLine(`// Output strides (contiguous)`);
+            for (let dim = 0; dim <= 5; ++dim) {
+                w.writeLine(`outputStride${dim}: input.shape.length > ${dim} ? outputStrides[${dim}] : 0,`);
+            }
+            w.writeLine(`size: shapeSize(input.shape),`);
+            if (hasAlpha) {
+                w.writeLine(`alpha: alpha || 1.0,`);
+            }
+            w.dedent();
+            w.writeLine(`};`);
+            w.writeLine(`return input.runKernel("${kernelSpec.name}_strided", ${configS}, params, ${outputShapesS})[0];`);
+            w.dedent();
+            w.writeLine(`} else {`);
+            w.indent();
             writeParams("input", false, hasAlpha, "alpha", w);
             w.writeLine(`return input.runKernel("${kernelSpec.name}", ${configS}, params, ${outputShapesS})[0];`);
+            w.dedent();
+            w.writeLine(`}`);
         }
         w.dedent();
         w.writeLine(`}`);
