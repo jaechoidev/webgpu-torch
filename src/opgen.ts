@@ -221,7 +221,11 @@ function getReductionDimKernelSpec(op: ReductionOpSpec): KernelSpec {
                   inputSize: "dimN",
               });
     let shader = `
-    let outputIndex = global_id.x;
+    // Fix for 2D dispatch: properly map 2D workgroup coordinates to 1D index
+    let workgroup_id_x = global_id.x / 256u;
+    let workgroup_id_y = global_id.y;
+    let workgroup_linear = workgroup_id_x + workgroup_id_y * 65535u;
+    let outputIndex = workgroup_linear * 256u + local_id.x;
     if (outputIndex >= parameters.size) {
         return;
     }
@@ -232,16 +236,27 @@ function getReductionDimKernelSpec(op: ReductionOpSpec): KernelSpec {
     i = i % parameters.outputStride1;
     var outputIndex2 = u32(i / parameters.outputStride2);
     i = i % parameters.outputStride2;
-    var outputIndex3 = i;
-    let dimN = parameters.inputShape$$dim$$;
+    var outputIndex3 = u32(i / parameters.outputStride3);
+    i = i % parameters.outputStride3;
+    var outputIndex4 = i;
+    var outputIndices = array<u32, 5>(outputIndex0, outputIndex1, outputIndex2, outputIndex3, outputIndex4);
+    var inputShapes = array<u32, 5>(parameters.inputShape0, parameters.inputShape1, parameters.inputShape2, parameters.inputShape3, parameters.inputShape4);
+    var inputStrides = array<u32, 5>(parameters.inputStride0, parameters.inputStride1, parameters.inputStride2, parameters.inputStride3, parameters.inputStride4);
+
+    var dimIdx = i32($$dim$$);
+    if (dimIdx < 0) {
+        dimIdx = dimIdx + i32($$maxdim$$);
+    }
+    let dimN = inputShapes[u32(dimIdx)];
     var ${initCode};
     for (var dimI = 0u; dimI < dimN; dimI++) {
-        outputIndex$$dim$$ = dimI;
+        outputIndices[u32(dimIdx)] = dimI;
         let inputIndex =
-            outputIndex0 * parameters.inputStride0 +
-            outputIndex1 * parameters.inputStride1 +
-            outputIndex2 * parameters.inputStride2 +
-            outputIndex3;
+            outputIndices[0] * inputStrides[0] +
+            outputIndices[1] * inputStrides[1] +
+            outputIndices[2] * inputStrides[2] +
+            outputIndices[3] * inputStrides[3] +
+            outputIndices[4] * inputStrides[4];
         ${forwardCode};
     }
     ${reduceCode};
@@ -278,6 +293,10 @@ function getReductionDimKernelSpec(op: ReductionOpSpec): KernelSpec {
                 shaderType: "u32",
             },
             {
+                name: "inputShape4",
+                shaderType: "u32",
+            },
+            {
                 name: "inputStride0",
                 shaderType: "u32",
             },
@@ -294,6 +313,10 @@ function getReductionDimKernelSpec(op: ReductionOpSpec): KernelSpec {
                 shaderType: "u32",
             },
             {
+                name: "inputStride4",
+                shaderType: "u32",
+            },
+            {
                 name: "outputStride0",
                 shaderType: "u32",
             },
@@ -307,6 +330,10 @@ function getReductionDimKernelSpec(op: ReductionOpSpec): KernelSpec {
             },
             {
                 name: "outputStride3",
+                shaderType: "u32",
+            },
+            {
+                name: "outputStride4",
                 shaderType: "u32",
             },
             {
@@ -328,7 +355,7 @@ function getReductionDimKernelSpec(op: ReductionOpSpec): KernelSpec {
             },
         ],
         workgroupSize: [256, 1, 1],
-        workgroupCount: ["size/256", 1, 1],
+        workgroupCount: ["65535", "((size + 255) / 256 + 65534) / 65535", 1],
         shader: shader,
     };
 }
@@ -339,7 +366,7 @@ function getBinaryKernelSpec(
     isOtherScalar: boolean,
     strided: boolean
 ): KernelSpec {
-    const maxdim = 4;
+    const maxdim = 5;
     const parameters: KernelParamSpec[] = [
         {
             name: "size",
@@ -347,6 +374,14 @@ function getBinaryKernelSpec(
         },
     ];
     if (strided) {
+        // Add output shapes (needed for index decomposition)
+        for (let dim = 0; dim < maxdim; dim++) {
+            parameters.push({
+                name: `outputShape${dim}`,
+                shaderType: "u32",
+            });
+        }
+        // Add strides for input, other, and output
         for (let dim = 0; dim < maxdim; dim++) {
             parameters.push({
                 name: `inputStrides${dim}`,
@@ -388,33 +423,52 @@ function getBinaryKernelSpec(
     let shader: string;
     if (strided) {
         shader = `
-        let outputIndex = global_id.x;
+        // Support 2D dispatch for large tensors in strided operations
+        let workgroup_x = global_id.x / 256u;
+        let workgroup_y = global_id.y;
+        let workgroup_1d = workgroup_y * 65535u + workgroup_x;
+        let outputIndex = workgroup_1d * 256u + (global_id.x % 256u);
+
         if (outputIndex >= parameters.size) {
             return;
         }
+
+        let dim_1234 = parameters.outputShape1 * parameters.outputShape2 * parameters.outputShape3 * parameters.outputShape4;
+        let dim_234 = parameters.outputShape2 * parameters.outputShape3 * parameters.outputShape4;
+        let dim_34 = parameters.outputShape3 * parameters.outputShape4;
+        let dim_4 = parameters.outputShape4;
+
         var i = outputIndex;
-        let outputIndex0 = u32(i / parameters.outputStrides0);
-        i = i % parameters.outputStrides0;
-        let outputIndex1 = u32(i / parameters.outputStrides1);
-        i = i % parameters.outputStrides1;
-        let outputIndex2 = u32(i / parameters.outputStrides2);
-        i = i % parameters.outputStrides2;
-        let outputIndex3 = i;
+        let outputIndex0 = i / dim_1234;
+        i = i % dim_1234;
+        let outputIndex1 = i / dim_234;
+        i = i % dim_234;
+        let outputIndex2 = i / dim_34;
+        i = i % dim_34;
+        let outputIndex3 = i / dim_4;
+        let outputIndex4 = i % dim_4;
+
         let inputIndex =
             outputIndex0 * parameters.inputStrides0 +
             outputIndex1 * parameters.inputStrides1 +
             outputIndex2 * parameters.inputStrides2 +
-            outputIndex3;
+            outputIndex3 * parameters.inputStrides3 +
+            outputIndex4 * parameters.inputStrides4;
         let otherIndex =
             outputIndex0 * parameters.otherStrides0 +
             outputIndex1 * parameters.otherStrides1 +
             outputIndex2 * parameters.otherStrides2 +
-            outputIndex3;
+            outputIndex3 * parameters.otherStrides3 +
+            outputIndex4 * parameters.otherStrides4;
         ${shaderSnippet};`;
     }
     else {
         shader = `
-        let outputIndex = global_id.x;
+        // Use 2D dispatch to handle large tensors (>65535*256 elements)
+        let workgroup_x = global_id.x / 256u;
+        let workgroup_y = global_id.y;
+        let workgroup_1d = workgroup_y * 65535u + workgroup_x;
+        let outputIndex = workgroup_1d * 256u + (global_id.x % 256u);
         if (outputIndex >= parameters.size) {
             return;
         }
@@ -464,7 +518,7 @@ function getBinaryKernelSpec(
             },
         ],
         workgroupSize: [256, 1, 1],
-        workgroupCount: ["size/256", 1, 1],
+        workgroupCount: ["65535", "((size + 255) / 256 + 65534) / 65535", 1],
         shader: shader,
     };
 }
@@ -481,12 +535,12 @@ function getBinaryGradKernelSpec(
         },
     ];
     const subs: any = {
-        input: "input[global_id.x]",
-        inputGrad: "inputGrad[global_id.x]",
-        output: "output[global_id.x]",
-        outputGrad: "outputGrad[global_id.x]",
-        other: "other[global_id.x]",
-        otherGrad: "otherGrad[global_id.x]",
+        input: "input[idx]",
+        inputGrad: "inputGrad[idx]",
+        output: "output[idx]",
+        outputGrad: "outputGrad[idx]",
+        other: "other[idx]",
+        otherGrad: "otherGrad[idx]",
     };
     if (isOtherScalar) {
         subs.other = "parameters.other";
@@ -507,7 +561,10 @@ function getBinaryGradKernelSpec(
     const shaderAst = substituteIdentifiers(ast, subs);
     const shaderSnippet = exprNodeToWebGLShader(shaderAst);
     const shader = `
-        if (global_id.x >= parameters.size) {
+        // Use 2D dispatch to handle large tensors (>65535*256 elements)
+        let workgroup_1d = (global_id.x / 256u) + global_id.y * 65535u;
+        let idx = workgroup_1d * 256u + (global_id.x % 256u);
+        if (idx >= parameters.size) {
             return;
         }
         ${isOtherScalar? "var otherGrad = 0.0;" : ""}
@@ -551,7 +608,7 @@ function getBinaryGradKernelSpec(
         inputs,
         outputs,
         workgroupSize: [256, 1, 1],
-        workgroupCount: ["size/256", 1, 1],
+        workgroupCount: ["65535", "((size + 255) / 256 + 65534) / 65535", 1],
         shader,
     };
 }
@@ -568,22 +625,24 @@ function getUnaryKernelSpec(op: UnaryOpSpec): KernelSpec {
         // },
     ];
     const subs: any = {
-        input: "input[index]",
-        output: "output[index]",
-    };
-    if (op.alpha !== undefined && op.alpha) {
-        parameters.push({
-            name: "alpha",
-            shaderType: "f32",
-        });
-        subs["alpha"] = "parameters.alpha";
-    }
-    const ast = parseCode(op.forward);
-    const shaderAst = substituteIdentifiers(ast, subs);
-    const shaderSnippet = exprNodeToWebGLShader(shaderAst);
-    const shader = `
-        var index = global_id.x;
-        if (index >= parameters.size) {
+        input: "input[idx]",
+        output: "output[idx]",
+        };
+        if (op.alpha !== undefined && op.alpha) {
+            parameters.push({
+                name: "alpha",
+                shaderType: "f32",
+            });
+            subs["alpha"] = "parameters.alpha";
+        }
+        const ast = parseCode(op.forward);
+        const shaderAst = substituteIdentifiers(ast, subs);
+        const shaderSnippet = exprNodeToWebGLShader(shaderAst);
+        const shader = `
+        // Use 2D dispatch to handle large tensors (>65535*256 elements)
+        let workgroup_1d = (global_id.x / 256u) + global_id.y * 65535u;
+        let idx = workgroup_1d * 256u + (global_id.x % 256u);
+        if (idx >= parameters.size) {
             return;
         }
         ${shaderSnippet};`;
@@ -609,10 +668,7 @@ function getUnaryKernelSpec(op: UnaryOpSpec): KernelSpec {
             },
         ],
         workgroupSize: [256, 1, 1],
-        workgroupCount: ["size/256", 1, 1],
-        // workgroupCount: ["var sizeX = ceil(pow(size, 0.5));sizeX / 16", "var sizeX = ceil(pow(size, 0.5));ceil(size/sizeX) / 16", 1],
-        // workgroupCount: [1, 1, 1],
-        // workgroupVariables: [{name:"local_input", shaderType:["array<f32>", 256*8]}],
+        workgroupCount: ["65535", "((size + 255) / 256 + 65534) / 65535", 1],
         shader: shader,
     };
 }
@@ -626,8 +682,8 @@ function getUnaryInplaceKernelSpec(op: UnaryOpSpec): KernelSpec {
     ];
     const ast = parseCode(op.forward);
     const subs: any = {
-        input: "input[global_id.x]",
-        output: "input[global_id.x]",
+        input: "input[idx]",
+        output: "input[idx]",
     };
     if (op.alpha !== undefined && op.alpha) {
         parameters.push({
@@ -639,7 +695,11 @@ function getUnaryInplaceKernelSpec(op: UnaryOpSpec): KernelSpec {
     const shaderAst = substituteIdentifiers(ast, subs);
     const shaderSnippet = exprNodeToWebGLShader(shaderAst);
     const shader = `
-        if (global_id.x >= parameters.size) {
+        // Use 2D dispatch to handle large tensors (>65535*256 elements)
+        // Map 2D workgroup dispatch back to 1D element index
+        let workgroup_1d = (global_id.x / 256u) + global_id.y * 65535u;
+        let idx = workgroup_1d * 256u + (global_id.x % 256u);
+        if (idx >= parameters.size) {
             return;
         }
         ${shaderSnippet};`;
@@ -660,7 +720,7 @@ function getUnaryInplaceKernelSpec(op: UnaryOpSpec): KernelSpec {
             },
         ],
         workgroupSize: [256, 1, 1],
-        workgroupCount: ["size/256", 1, 1],
+        workgroupCount: ["65535", "((size + 255) / 256 + 65534) / 65535", 1],
         shader: shader,
     };
 }
@@ -676,10 +736,10 @@ function getUnaryGradKernelSpec(
         },
     ];
     const subs: any = {
-        input: "input[global_id.x]",
-        inputGrad: "inputGrad[global_id.x]",
-        output: "output[global_id.x]",
-        outputGrad: "outputGrad[global_id.x]",
+        input: "input[idx]",
+        inputGrad: "inputGrad[idx]",
+        output: "output[idx]",
+        outputGrad: "outputGrad[idx]",
     };
     if (op.alpha !== undefined && op.alpha) {
         parameters.push({
@@ -692,7 +752,10 @@ function getUnaryGradKernelSpec(
     const shaderAst = substituteIdentifiers(ast, subs);
     const shaderSnippet = exprNodeToWebGLShader(shaderAst);
     const shader = `
-        if (global_id.x >= parameters.size) {
+        // Use 2D dispatch to handle large tensors (>65535*256 elements)
+        let workgroup_1d = (global_id.x / 256u) + global_id.y * 65535u;
+        let idx = workgroup_1d * 256u + (global_id.x % 256u);
+        if (idx >= parameters.size) {
             return;
         }
         ${shaderSnippet};`;
@@ -722,7 +785,7 @@ function getUnaryGradKernelSpec(
             },
         ],
         workgroupSize: [256, 1, 1],
-        workgroupCount: ["size/256", 1, 1],
+        workgroupCount: ["65535", "((size + 255) / 256 + 65534) / 65535", 1],
         shader: shader,
     };
 }

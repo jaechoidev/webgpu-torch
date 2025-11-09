@@ -20,7 +20,29 @@ export class GatherFunction extends AutoFunction {
             throw new Error(`Index shape ${index.shape} does not match input shape ${input.shape}`);
         }
         const outputShape = index.shape.slice();
-        return input.runKernel("gather", {dtype: input.dtype}, {dim}, [outputShape], index)[0];
+
+        // Compute total output size
+        let outputSize = 1;
+        for (let i = 0; i < outputShape.length; i++) {
+            outputSize *= outputShape[i];
+        }
+
+        // Pass shape and stride information to kernel
+        const params: any = {
+            dim,
+            outputSize,
+            rank
+        };
+
+        // Pass input shape and strides (up to 5D, pad with 1s if less)
+        for (let i = 0; i < 5; i++) {
+            params[`inputShape${i}`] = i < rank ? input.shape[i] : 1;
+            params[`inputStride${i}`] = i < rank ? input.strides[i] : 0;
+            params[`indexStride${i}`] = i < rank ? index.strides[i] : 0;
+            params[`outputShape${i}`] = i < rank ? outputShape[i] : 1;
+        }
+
+        return input.runKernel("gather", {dtype: input.dtype}, params, [outputShape], index)[0];
     }
     static setupContext(
         ctx: GradientContext,
