@@ -625,8 +625,8 @@ function getUnaryKernelSpec(op: UnaryOpSpec): KernelSpec {
         // },
     ];
     const subs: any = {
-        input: "input[index]",
-        output: "output[index]",
+        input: "input[idx]",
+        output: "output[idx]",
         };
         if (op.alpha !== undefined && op.alpha) {
             parameters.push({
