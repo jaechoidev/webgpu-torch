@@ -97,22 +97,40 @@ export function cat(inputs: Tensor[], dim: number = 0): Tensor {
     const dtype = inputs[0].dtype;
     const device = inputs[0].device;
 
+    // Log large concatenations for debugging
+    const outputSize = outputShape.reduce((a, b) => a * b, 1) * 4; // assuming float32
+    if (outputSize > 100 * 1024 * 1024) { // > 100MB
+        console.warn(`[CAT] Large concatenation: ${inputs.length} inputs, output shape [${outputShape}], ` +
+                     `output size: ${(outputSize / 1024 / 1024).toFixed(2)} MB, dim: ${dim}`);
+        inputs.forEach((t, i) => {
+            const inputSize = t.shape.reduce((a, b) => a * b, 1) * 4;
+            console.warn(`  Input ${i}: shape [${t.shape}], size: ${(inputSize / 1024 / 1024).toFixed(2)} MB`);
+        });
+    }
+
     // Debug: Check device type
 
-    // If more than 8 inputs, use hierarchical batching (like PyTorch)
+    // WebGPU default limit is 8 storage buffers per shader stage
+    // cat kernel uses: N inputs + 1 output + 1 parameters = N+2 storage buffers
+    // Therefore, max inputs = 8 - 2 = 6 to stay within default limit
+    // HOWEVER, we also need to respect maxStorageBufferBindingSize (128MB by default)
+    // So we use a smaller batch size to avoid creating outputs > 128MB
+    const MAX_CAT_INPUTS = 3; // Reduced to avoid exceeding maxStorageBufferBindingSize
+
+    // If more than MAX_CAT_INPUTS inputs, use hierarchical batching (like PyTorch)
     // Works for both WebGPU and CPU devices
-    if (inputs.length > 8 && ndim <= 6) {
-        // Concatenate in batches of 8
+    if (inputs.length > MAX_CAT_INPUTS && ndim <= 6) {
+        // Concatenate in batches of MAX_CAT_INPUTS
         const batches: Tensor[] = [];
-        for (let i = 0; i < inputs.length; i += 8) {
-            const batch = inputs.slice(i, Math.min(i + 8, inputs.length));
+        for (let i = 0; i < inputs.length; i += MAX_CAT_INPUTS) {
+            const batch = inputs.slice(i, Math.min(i + MAX_CAT_INPUTS, inputs.length));
             batches.push(cat(batch, dim)); // Recursive call
         }
         return cat(batches, dim); // Final concatenation
     }
 
-    // Check if we can use GPU kernel (up to 8 inputs on WebGPU)
-    if (device.type === "webgpu" && inputs.length <= 8 && ndim <= 6) {
+    // Check if we can use GPU kernel (up to MAX_CAT_INPUTS inputs on WebGPU with default limits)
+    if (device.type === "webgpu" && inputs.length <= MAX_CAT_INPUTS && ndim <= 6) {
         const totalSize = outputShape.reduce((a, b) => a * b, 1);
 
         // Build parameters
@@ -129,8 +147,8 @@ export function cat(inputs: Tensor[], dim: number = 0): Tensor {
             numInputs: inputs.length,
         };
 
-        // Add parameters for each input (up to 8)
-        for (let i = 0; i < 8; i++) {
+        // Add parameters for each input (up to MAX_CAT_INPUTS = 6)
+        for (let i = 0; i < MAX_CAT_INPUTS; i++) {
             if (i < inputs.length) {
                 const input = inputs[i];
                 // DimSize is the size along the concatenation dimension
@@ -153,9 +171,9 @@ export function cat(inputs: Tensor[], dim: number = 0): Tensor {
             }
         }
 
-        // Build additional inputs array for inputs 1-7
+        // Build additional inputs array for inputs 1-5 (MAX_CAT_INPUTS-1)
         const additionalInputs: Tensor[] = [];
-        for (let i = 1; i < 8; i++) {
+        for (let i = 1; i < MAX_CAT_INPUTS; i++) {
             additionalInputs.push(i < inputs.length ? inputs[i] : inputs[0]); // Dummy for unused
         }
 
@@ -164,7 +182,7 @@ export function cat(inputs: Tensor[], dim: number = 0): Tensor {
     }
 
     // No WebGPU kernel available - throw descriptive error
-    throw new Error(`cat() on device "${device.type}" with ${inputs.length} inputs and ${ndim}D tensors is not supported. WebGPU kernel only supports ≤8 inputs and ≤6D tensors on WebGPU device. Check that tensors are created on WebGPU device, not CPU.`);
+    throw new Error(`cat() on device "${device.type}" with ${inputs.length} inputs and ${ndim}D tensors is not supported. WebGPU kernel only supports ≤${MAX_CAT_INPUTS} inputs and ≤6D tensors on WebGPU device. Check that tensors are created on WebGPU device, not CPU.`);
 }
 
 /**

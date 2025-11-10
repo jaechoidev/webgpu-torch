@@ -277,6 +277,7 @@ export class KernelWebGPU extends Kernel {
             },
         });
         const bindGroup = this._gpuDevice.createBindGroup({
+            label: `BindGroup[${this.spec.name}]`,
             layout: this._bindGroupLayout,
             entries: entries,
         });

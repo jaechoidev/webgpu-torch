@@ -51,6 +51,7 @@ export class DeviceWebGPU extends Device {
         const byteSize = shapeSize(shape) * elementByteSize;
         const alignedByteSize = Math.floor((byteSize + 3) / 4) * 4;
         const buffer = this._device.createBuffer({
+            label: `Tensor[${shape.join('x')}, ${dtype}, ${alignedByteSize} bytes]`,
             mappedAtCreation: true,
             size: alignedByteSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
@@ -64,6 +65,7 @@ export class DeviceWebGPU extends Device {
     alloc(byteSize: number): UntypedStorage {
         const alignedByteSize = Math.floor((byteSize + 3) / 4) * 4;
         const buffer = this._device.createBuffer({
+            label: `Alloc[${alignedByteSize} bytes]`,
             mappedAtCreation: false,
             size: alignedByteSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
@@ -71,8 +73,12 @@ export class DeviceWebGPU extends Device {
         return new GPUBufferStorage(buffer, this);
     }
     allocBufferHeap(): BufferHeap<GPUBuffer> {
-        const byteSize = this.gpuDevice.limits.maxBufferSize;
+        const byteSize = Math.min(
+            this.gpuDevice.limits.maxBufferSize,
+            this.gpuDevice.limits.maxStorageBufferBindingSize
+        );
         const buffer = this._device.createBuffer({
+            label: `BufferHeap[${byteSize} bytes]`,
             mappedAtCreation: false,
             size: byteSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,

@@ -111,7 +111,8 @@ export class GPUBufferStorage extends UntypedStorage {
     constructor(
         input: number | GPUBuffer | HeapBuffer<GPUBuffer>,
         device: DeviceWebGPU,
-        usage?: GPUBufferUsageFlags
+        usage?: GPUBufferUsageFlags,
+        label?: string
     ) {
         super();
         this._device = device;
@@ -131,6 +132,7 @@ export class GPUBufferStorage extends UntypedStorage {
         ) {
             const alignedByteSize = Math.floor((input + 3) / 4) * 4;
             this._buffer = this._gpuDevice.createBuffer({
+                label: label || `Buffer[${alignedByteSize} bytes]`,
                 mappedAtCreation: true,
                 size: alignedByteSize,
                 usage: usage,
@@ -160,6 +162,7 @@ export class GPUBufferStorage extends UntypedStorage {
     private copyBufferToReadableBuffer(): GPUBuffer {
         const size = this._byteSize;
         const readBuffer = this._gpuDevice.createBuffer({
+            label: `ReadBuffer[${size} bytes]`,
             mappedAtCreation: false,
             size: size,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
@@ -185,6 +188,7 @@ export class GPUBufferStorage extends UntypedStorage {
             GPUBufferUsage.COPY_SRC |
             GPUBufferUsage.STORAGE;
         const cloneBuffer = this._gpuDevice.createBuffer({
+            label: `ClonedBuffer[${this._buffer.size} bytes]`,
             mappedAtCreation: false,
             size: this._buffer.size,
             usage: usage,

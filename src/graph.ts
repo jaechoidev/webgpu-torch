@@ -190,7 +190,15 @@ export class KernelNode extends ComputedNode {
             const outputNumElements = kernel.spec.outputs[i].size(nodeRunEnv);
             const outputByteSize =
                 outputNumElements * dtypeByteSize(output.dtype);
-            return alloc(outputByteSize);
+            try {
+                return alloc(outputByteSize);
+            } catch (e) {
+                throw new Error(
+                    `Failed to allocate ${outputByteSize} bytes for output ${i} of kernel "${kernel.spec.name}". ` +
+                    `Output shape would be approximately ${Math.floor(outputNumElements)} elements. ` +
+                    `Original error: ${e}`
+                );
+            }
         });
         kernel.run(inputs, this.params, outputs);
         return outputs;
