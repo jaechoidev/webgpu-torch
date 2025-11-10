@@ -1070,146 +1070,6 @@ export const kernels: { [name: string]: KernelSpec } = {
                 name: "input2Stride5",
                 shaderType: "u32",
             },
-            {
-                name: "input3DimSize",
-                shaderType: "u32",
-            },
-            {
-                name: "input3Stride0",
-                shaderType: "u32",
-            },
-            {
-                name: "input3Stride1",
-                shaderType: "u32",
-            },
-            {
-                name: "input3Stride2",
-                shaderType: "u32",
-            },
-            {
-                name: "input3Stride3",
-                shaderType: "u32",
-            },
-            {
-                name: "input3Stride4",
-                shaderType: "u32",
-            },
-            {
-                name: "input3Stride5",
-                shaderType: "u32",
-            },
-            {
-                name: "input4DimSize",
-                shaderType: "u32",
-            },
-            {
-                name: "input4Stride0",
-                shaderType: "u32",
-            },
-            {
-                name: "input4Stride1",
-                shaderType: "u32",
-            },
-            {
-                name: "input4Stride2",
-                shaderType: "u32",
-            },
-            {
-                name: "input4Stride3",
-                shaderType: "u32",
-            },
-            {
-                name: "input4Stride4",
-                shaderType: "u32",
-            },
-            {
-                name: "input4Stride5",
-                shaderType: "u32",
-            },
-            {
-                name: "input5DimSize",
-                shaderType: "u32",
-            },
-            {
-                name: "input5Stride0",
-                shaderType: "u32",
-            },
-            {
-                name: "input5Stride1",
-                shaderType: "u32",
-            },
-            {
-                name: "input5Stride2",
-                shaderType: "u32",
-            },
-            {
-                name: "input5Stride3",
-                shaderType: "u32",
-            },
-            {
-                name: "input5Stride4",
-                shaderType: "u32",
-            },
-            {
-                name: "input5Stride5",
-                shaderType: "u32",
-            },
-            {
-                name: "input6DimSize",
-                shaderType: "u32",
-            },
-            {
-                name: "input6Stride0",
-                shaderType: "u32",
-            },
-            {
-                name: "input6Stride1",
-                shaderType: "u32",
-            },
-            {
-                name: "input6Stride2",
-                shaderType: "u32",
-            },
-            {
-                name: "input6Stride3",
-                shaderType: "u32",
-            },
-            {
-                name: "input6Stride4",
-                shaderType: "u32",
-            },
-            {
-                name: "input6Stride5",
-                shaderType: "u32",
-            },
-            {
-                name: "input7DimSize",
-                shaderType: "u32",
-            },
-            {
-                name: "input7Stride0",
-                shaderType: "u32",
-            },
-            {
-                name: "input7Stride1",
-                shaderType: "u32",
-            },
-            {
-                name: "input7Stride2",
-                shaderType: "u32",
-            },
-            {
-                name: "input7Stride3",
-                shaderType: "u32",
-            },
-            {
-                name: "input7Stride4",
-                shaderType: "u32",
-            },
-            {
-                name: "input7Stride5",
-                shaderType: "u32",
-            },
         ],
         inputs: [
             {
@@ -1222,26 +1082,6 @@ export const kernels: { [name: string]: KernelSpec } = {
             },
             {
                 name: "input2",
-                shaderType: "array<f32>",
-            },
-            {
-                name: "input3",
-                shaderType: "array<f32>",
-            },
-            {
-                name: "input4",
-                shaderType: "array<f32>",
-            },
-            {
-                name: "input5",
-                shaderType: "array<f32>",
-            },
-            {
-                name: "input6",
-                shaderType: "array<f32>",
-            },
-            {
-                name: "input7",
                 shaderType: "array<f32>",
             },
         ],
@@ -1476,46 +1316,6 @@ export const kernels: { [name: string]: KernelSpec } = {
                 stride3 = parameters.input2Stride3;
                 stride4 = parameters.input2Stride4;
                 stride5 = parameters.input2Stride5;
-            } else if (input_i == 3u) {
-                dimSize = parameters.input3DimSize;
-                stride0 = parameters.input3Stride0;
-                stride1 = parameters.input3Stride1;
-                stride2 = parameters.input3Stride2;
-                stride3 = parameters.input3Stride3;
-                stride4 = parameters.input3Stride4;
-                stride5 = parameters.input3Stride5;
-            } else if (input_i == 4u) {
-                dimSize = parameters.input4DimSize;
-                stride0 = parameters.input4Stride0;
-                stride1 = parameters.input4Stride1;
-                stride2 = parameters.input4Stride2;
-                stride3 = parameters.input4Stride3;
-                stride4 = parameters.input4Stride4;
-                stride5 = parameters.input4Stride5;
-            } else if (input_i == 5u) {
-                dimSize = parameters.input5DimSize;
-                stride0 = parameters.input5Stride0;
-                stride1 = parameters.input5Stride1;
-                stride2 = parameters.input5Stride2;
-                stride3 = parameters.input5Stride3;
-                stride4 = parameters.input5Stride4;
-                stride5 = parameters.input5Stride5;
-            } else if (input_i == 6u) {
-                dimSize = parameters.input6DimSize;
-                stride0 = parameters.input6Stride0;
-                stride1 = parameters.input6Stride1;
-                stride2 = parameters.input6Stride2;
-                stride3 = parameters.input6Stride3;
-                stride4 = parameters.input6Stride4;
-                stride5 = parameters.input6Stride5;
-            } else if (input_i == 7u) {
-                dimSize = parameters.input7DimSize;
-                stride0 = parameters.input7Stride0;
-                stride1 = parameters.input7Stride1;
-                stride2 = parameters.input7Stride2;
-                stride3 = parameters.input7Stride3;
-                stride4 = parameters.input7Stride4;
-                stride5 = parameters.input7Stride5;
             }
 
             if (concat_coord < offset + dimSize) {
@@ -1567,11 +1367,6 @@ export const kernels: { [name: string]: KernelSpec } = {
 
                 // Read from the appropriate input based on input_i
                 if (input_i == 2u) { value = input2[idx]; }
-                else if (input_i == 3u) { value = input3[idx]; }
-                else if (input_i == 4u) { value = input4[idx]; }
-                else if (input_i == 5u) { value = input5[idx]; }
-                else if (input_i == 6u) { value = input6[idx]; }
-                else if (input_i == 7u) { value = input7[idx]; }
 
                 found = true;
             }
