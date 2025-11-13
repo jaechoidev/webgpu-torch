@@ -215,6 +215,7 @@ export const registry: AnOpSpec[] = [
         forward: "output = input * other",
         backward: "inputGrad = outputGrad * other; otherGrad = outputGrad * input",
     },
+
     // mvlgamma: special
     // nan_to_num: special
     {

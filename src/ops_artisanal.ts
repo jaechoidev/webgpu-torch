@@ -750,6 +750,64 @@ export function mm(input: Tensor, other: Tensor): Tensor {
     )[0];
     }
 }
+export function naivemm(input: Tensor, other: Tensor): Tensor {
+    if (shouldCreateGradient(input, other)) {
+        throw new Error("mm gradient not supported yet");
+    } else {
+    if (input.shape.length !== 2 || other.shape.length !== 2) {
+        throw new Error(
+            `Expected 2D tensors, got ${input.shape} and ${other.shape}`
+        );
+    }
+    if (input.shape[1] !== other.shape[0]) {
+        throw new Error(
+            `Expected tensors inner dimensions to be compatible, got ${input.shape} and ${other.shape}`
+        );
+    }
+    const params = {
+        M: input.shape[0],
+        K: input.shape[1],
+        N: other.shape[1],
+    };
+    return input.runKernel(
+        "naivemm",
+        { resultDtype: input.dtype },
+        params,
+        [[params.M, params.N]],
+        other
+    )[0];
+    }
+}
+
+export function fastmm(input: Tensor, other: Tensor): Tensor {
+    // console.log('fastmm func\n')
+    if (shouldCreateGradient(input, other)) {
+        throw new Error("mm gradient not supported yet");
+    } else {
+    if (input.shape.length !== 2 || other.shape.length !== 2) {
+        throw new Error(
+            `Expected 2D tensors, got ${input.shape} and ${other.shape}`
+        );
+    }
+    if (input.shape[1] !== other.shape[0]) {
+        throw new Error(
+            `Expected tensors inner dimensions to be compatible, got ${input.shape} and ${other.shape}`
+        );
+    }
+    const params = {
+        M: input.shape[0],
+        K: input.shape[1],
+        N: other.shape[1],
+    };
+    return input.runKernel(
+        "fastmm",
+        { resultDtype: input.dtype },
+        params,
+        [[params.M, params.N]],
+        other
+    )[0];
+    }
+}
 
 export function numel(input: Tensor): number {
     return shapeSize(input.shape);

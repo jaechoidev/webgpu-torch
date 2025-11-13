@@ -1,5 +1,5 @@
 import { KernelSpec } from "./kernel";
-
+import {matmulShader} from "./matmulshader"
 export const kernels: { [name: string]: KernelSpec } = {
     conv2d: {
         name: "conv2d",
@@ -502,8 +502,190 @@ export const kernels: { [name: string]: KernelSpec } = {
     }
     let outputIndex = outputCol + outputRow * parameters.bCols;
     output[outputIndex] = result;
+
 `
     },
+    naivemm: {
+        name: "naivemm",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            {
+                name: "M", 
+                shaderType: "u32"
+            },
+            {
+                name: "K", 
+                shaderType: "u32"
+            },
+            {
+                name: "N", 
+                shaderType: "u32"
+            },
+        ],
+        inputs: [
+            {
+                name: "a", 
+                shaderType: "array<f32>" 
+            },
+            {
+                name: "b",
+                shaderType: "array<f32>"
+            },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "M * N"
+            }
+        ],
+        workgroupSize: [1,1,1],
+        workgroupCount: ["M*N", 1, 1],
+        shader: `
+        let index = global_id.x;
+        let row = index / parameters.N;
+        let col = index % parameters.N;
+
+        if (index < parameters.M * parameters.N) {
+            var sum = 0.0;
+            for (var i = 0u; i < parameters.K; i = i + 1u) {
+                sum = sum + a[row * parameters.K + i] * b[i * parameters.N + col];
+            }
+            result[row * parameters.N + col] = sum;
+        }
+        `
+
+    },
+    fastmm2: {
+        name: "fastmm2",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            {
+                name: "M", 
+                shaderType: "u32"
+            },
+            {
+                name: "K", 
+                shaderType: "u32"
+            },
+            {
+                name: "N", 
+                shaderType: "u32"
+            },
+        ],
+        inputs: [
+            {
+                name: "a", 
+                shaderType: "array<f32>" 
+            },
+            {
+                name: "b",
+                shaderType: "array<f32>"
+            },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "M * N"
+            }
+        ],
+        workgroupSize: [16,16,1],
+        workgroupCount: ["M / 16", "N / 16", 1],
+        shader: `
+        const BLOCKSIZE: u32 = 16;
+        const TILE_M: u32 = 4;
+        const TILE_N: u32 = 4;
+        let row = global_id.y * TILE_M;
+        let col = global_id.x * TILE_N;
+
+        // initialize the array with all 0s
+        var sums: array<array<f32, TILE_N>, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                sums[i][j] = 0.0;
+            }
+        }
+
+        // Compute the 2D tile
+        for (var k = 0u; k < parameters.K; k++) {
+            // for each row
+            for (var i = 0u; i < TILE_M; i++) {
+                let a_element = a[(row + i) * parameters.K + k];
+                // calculate the dot product
+                for (var j = 0u; j < TILE_N; j++) {
+                    let b_element = b[k * parameters.N + (col + j)];
+                    sums[i][j] += a_element * b_element;
+                }
+            }
+        }
+
+        // Write results
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                let output_row = row + i;
+                let output_col = col + j;
+                if (output_row < parameters.M && output_col < parameters.N) {
+                    result[output_row * parameters.N + output_col] = sums[i][j];
+                }
+            }
+        }
+        `
+
+    },
+    fastmm: {
+        name: "fastmm",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            {
+                name: "M", 
+                shaderType: "u32"
+            },
+            {
+                name: "K", 
+                shaderType: "u32"
+            },
+            {
+                name: "N", 
+                shaderType: "u32"
+            },
+        ],
+        inputs: [
+            {
+                name: "a", 
+                shaderType: "array<f32>" 
+            },
+            {
+                name: "b",
+                shaderType: "array<f32>"
+            },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "M * N"
+            }
+        ],
+        workgroupSize: [16,16,1],
+        workgroupCount: ["M / 16", "N / 16", 1],
+        shader: matmulShader
+
+    },
+
+
     bmm: {
         name: "bmm",
         config: [
