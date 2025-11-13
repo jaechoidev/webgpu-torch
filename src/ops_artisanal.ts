@@ -603,6 +603,8 @@ export function matmul(input: Tensor, other: Tensor): Tensor {
                 `inconsistent tensor size, expected tensor [${a.shape}] and src [${b.shape}] to have the same number of elements, but got ${a.shape[0]} and ${b.shape[0]} elements respectively`
             );
         }
+        return fastmm(input, other);
+
         op = "dot";
         aop = a;
         bop = b;
@@ -610,47 +612,53 @@ export function matmul(input: Tensor, other: Tensor): Tensor {
     }
     // If both arguments are 2-dimensional, the matrix-matrix product is returned
     else if (adims === 2 && bdims === 2) {
-        op = "mm";
-        aop = a;
-        bop = b;
-        outputShape = [a.shape[0], b.shape[1]];
-        if (aop.shape[1] !== b.shape[0]) {
-            throw new Error(
-                `mat1 and mat2 shapes cannot be multiplied (${a.shape[0]}x${a.shape[1]} and ${b.shape[0]}x${b.shape[1]})`
-            );
-        }
+        return fastmm(input, other);
+        // op = "fastmm";
+        // aop = a;
+        // bop = b;
+        // outputShape = [a.shape[0], b.shape[1]];
+        // if (aop.shape[1] !== b.shape[0]) {
+        //     throw new Error(
+        //         `mat1 and mat2 shapes cannot be multiplied (${a.shape[0]}x${a.shape[1]} and ${b.shape[0]}x${b.shape[1]})`
+        //     );
+        // }
     }
     // If the first argument is 1-dimensional and the second argument is 2-dimensional, a 1 is prepended to its dimension
     else if (adims === 1 && bdims === 2) {
-        const aopshape = b.shape.slice();
-        const aopstrides = b.strides.slice();
-        aopshape[bdims - 1] = b.shape[bdims - 2];
-        aopshape[bdims - 2] = b.shape[bdims - 1];
-        aopstrides[bdims - 1] = b.strides[bdims - 2];
-        aopstrides[bdims - 2] = b.strides[bdims - 1];
-        op = "mv";
-        aop = { shape: aopshape, strides: aopstrides };
-        bop = a;
-        outputShape = [b.shape[bdims - 1]];
-        atensor = other;
-        btensor = input;
-        if (aop.shape[1] !== bop.shape[0]) {
-            throw new Error(
-                `mat1 and mat2 shapes cannot be multiplied (1x${bop.shape[0]} and ${aop.shape[1]}x${aop.shape[0]})`
-            );
-        }
+        return fastmm(input, other);
+
+        // const aopshape = b.shape.slice();
+        // const aopstrides = b.strides.slice();
+        // aopshape[bdims - 1] = b.shape[bdims - 2];
+        // aopshape[bdims - 2] = b.shape[bdims - 1];
+        // aopstrides[bdims - 1] = b.strides[bdims - 2];
+        // aopstrides[bdims - 2] = b.strides[bdims - 1];
+        // op = "mv";
+        // aop = { shape: aopshape, strides: aopstrides };
+        // bop = a;
+        // outputShape = [b.shape[bdims - 1]];
+        // atensor = other;
+        // btensor = input;
+        // if (aop.shape[1] !== bop.shape[0]) {
+        //     throw new Error(
+        //         `mat1 and mat2 shapes cannot be multiplied (1x${bop.shape[0]} and ${aop.shape[1]}x${aop.shape[0]})`
+        //     );
+        // }
     }
     // If the first argument is 2-dimensional and the second argument is 1-dimensional, the matrix-vector product is returned
     else if (adims === 2 && bdims == 1) {
-        op = "mv";
-        aop = a;
-        bop = b;
-        outputShape = [a.shape[0]];
-        if (aop.shape[1] !== bop.shape[0]) {
-            throw new Error(
-                `size mismatch, got ${aop.shape[0]}, ${aop.shape[0]}x${aop.shape[1]},${b.shape[0]}`
-            );
-        }
+        return fastmm(input, other);
+
+
+        // op = "mv";
+        // aop = a;
+        // bop = b;
+        // outputShape = [a.shape[0]];
+        // if (aop.shape[1] !== bop.shape[0]) {
+        //     throw new Error(
+        //         `size mismatch, got ${aop.shape[0]}, ${aop.shape[0]}x${aop.shape[1]},${b.shape[0]}`
+        //     );
+        // }
     } else if (adims >= 1 && bdims >= 1 && (adims > 2 || bdims > 2)) {
         op = "bmm";
         const broadcast = broadcastBatchedMatmul(input, other);
