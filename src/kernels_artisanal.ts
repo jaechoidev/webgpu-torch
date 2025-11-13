@@ -514,17 +514,37 @@ export const kernels: { [name: string]: KernelSpec } = {
         ],
         parameters: [
             {
-                name: "M", 
+                name: "aRows", 
                 shaderType: "u32"
             },
             {
-                name: "K", 
+                name: "aCols", 
                 shaderType: "u32"
             },
             {
-                name: "N", 
+                name: "bCols", 
                 shaderType: "u32"
             },
+            {
+                name: "aRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "aColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "alpha",
+                shaderType: "f32",
+            }
         ],
         inputs: [
             {
@@ -540,25 +560,33 @@ export const kernels: { [name: string]: KernelSpec } = {
             {
                 name: "result",
                 shaderType: "array<f32>",
-                size: "M * N"
+                size: "aRows * bCols"
             }
         ],
-        workgroupSize: [1,1,1],
-        workgroupCount: ["M*N", 1, 1],
+        workgroupSize: [16,16,1],
+        workgroupCount: ["aRows / 16", "bCols / 16", 1],
         shader: `
-        let index = global_id.x;
-        let row = index / parameters.N;
-        let col = index % parameters.N;
-
-        if (index < parameters.M * parameters.N) {
-            var sum = 0.0;
-            for (var i = 0u; i < parameters.K; i = i + 1u) {
-                sum = sum + a[row * parameters.K + i] * b[i * parameters.N + col];
-            }
-            result[row * parameters.N + col] = sum;
+        let outputRow = global_id.x;
+        let outputCol = global_id.y;
+        if (outputRow >= parameters.aRows || outputCol >= parameters.bCols) {
+            return;
         }
-        `
 
+        var sum = 0.0;
+        var aIndex = outputRow * parameters.aRowStride;
+        var bIndex = outputCol * parameters.bColStride;
+        for (var i: u32 = 0u; i < parameters.aCols; i = i + 1u) {
+            // result = result + a[row * parameters.aRows + i] * b[i * parameters.bCols + col];
+            sum = sum + a[aIndex] * b[bIndex];
+            aIndex = aIndex + parameters.aColStride;
+            bIndex = bIndex + parameters.bRowStride;
+            
+        }
+        let outputIndex = outputCol + outputRow * parameters.bCols;
+        // output[row * parameters.bCols + col] = sum;
+        result[outputIndex] = sum;
+
+        `
     },
     fastmm2: {
         name: "fastmm2",
@@ -569,16 +597,31 @@ export const kernels: { [name: string]: KernelSpec } = {
         ],
         parameters: [
             {
-                name: "M", 
+                name: "aRows", 
                 shaderType: "u32"
             },
             {
-                name: "K", 
+                name: "aCols", 
                 shaderType: "u32"
             },
             {
-                name: "N", 
+                name: "bCols", 
                 shaderType: "u32"
+            },            {
+                name: "aRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "aColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bColStride",
+                shaderType: "u32",
             },
         ],
         inputs: [
@@ -595,50 +638,60 @@ export const kernels: { [name: string]: KernelSpec } = {
             {
                 name: "result",
                 shaderType: "array<f32>",
-                size: "M * N"
+                size: "aRows * bCols"
             }
         ],
         workgroupSize: [16,16,1],
-        workgroupCount: ["M / 16", "N / 16", 1],
+        workgroupCount: ["aRows / 16", "bCols / 16", 1],
         shader: `
-        const BLOCKSIZE: u32 = 16;
-        const TILE_M: u32 = 4;
-        const TILE_N: u32 = 4;
-        let row = global_id.y * TILE_M;
-        let col = global_id.x * TILE_N;
-
-        // initialize the array with all 0s
-        var sums: array<array<f32, TILE_N>, TILE_M>;
-        for (var i = 0u; i < TILE_M; i++) {
-            for (var j = 0u; j < TILE_N; j++) {
-                sums[i][j] = 0.0;
-            }
+        const TILESIZE = 4;
+        let outputRow = global_id.x;
+        let outputCol = global_id.y * TILESIZE;
+        if (outputRow >= parameters.aRows || outputCol >= parameters.bCols) {
+            return;
         }
 
-        // Compute the 2D tile
-        for (var k = 0u; k < parameters.K; k++) {
-            // for each row
-            for (var i = 0u; i < TILE_M; i++) {
-                let a_element = a[(row + i) * parameters.K + k];
-                // calculate the dot product
-                for (var j = 0u; j < TILE_N; j++) {
-                    let b_element = b[k * parameters.N + (col + j)];
-                    sums[i][j] += a_element * b_element;
-                }
-            }
-        }
+        // var sum = 0.0;
+        var sum00: f32 = 0.0;
+        var sum01: f32 = 0.0;
+        var sum02: f32 = 0.0;
+        var sum03: f32 = 0.0;
+        var aIndex = outputRow * parameters.aRowStride;
 
-        // Write results
-        for (var i = 0u; i < TILE_M; i++) {
-            for (var j = 0u; j < TILE_N; j++) {
-                let output_row = row + i;
-                let output_col = col + j;
-                if (output_row < parameters.M && output_col < parameters.N) {
-                    result[output_row * parameters.N + output_col] = sums[i][j];
-                }
-            }
+        // var bIndex0 = outputCol * parameters.bColStride;
+        // var bIndex1 = (outputCol + 1u) * parameters.bColStride;
+        // var bIndex2 = (outputCol + 2u) * parameters.bColStride;
+        // var bIndex3 = (outputCol + 3u) * parameters.bColStride;
+
+        var bIndex00 = outputCol * parameters.bColStride;
+        var bIndex01 = bIndex00 + parameters.bColStride;
+        var bIndex02 = bIndex00 + 2u * parameters.bColStride;
+        var bIndex03 = bIndex00 + 3u * parameters.bColStride;
+
+        for (var i: u32 = 0u; i < parameters.aCols; i = i + 1u) {
+            // result = result + a[row * parameters.aRows + i] * b[i * parameters.bCols + col];
+            let a_elem = a[aIndex];
+            sum00 = sum00 + a_elem * b[bIndex00];
+            sum01 = sum01 + a_elem * b[bIndex01];
+            sum02 = sum02 + a_elem * b[bIndex02];
+            sum03 = sum03 + a_elem * b[bIndex03];
+
+            aIndex = aIndex + parameters.aColStride;
+            bIndex00 = bIndex00 + parameters.bRowStride;
+            bIndex01 = bIndex01 + parameters.bRowStride;
+            bIndex02 = bIndex02 + parameters.bRowStride;
+            bIndex03 = bIndex03 + parameters.bRowStride;
+            
         }
+        let outputIndex = outputCol + outputRow * parameters.bCols;
+        // output[row * parameters.bCols + col] = sum;
+        result[outputIndex] = sum00;
+        result[outputIndex + 1u ] = sum01;
+        result[outputIndex + 2u ] = sum02;
+        result[outputIndex + 3u ] = sum03;
+
         `
+        
 
     },
     fastmm: {
