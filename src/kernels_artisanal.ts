@@ -541,10 +541,7 @@ export const kernels: { [name: string]: KernelSpec } = {
                 name: "bColStride",
                 shaderType: "u32",
             },
-            {
-                name: "alpha",
-                shaderType: "f32",
-            }
+
         ],
         inputs: [
             {
@@ -566,25 +563,42 @@ export const kernels: { [name: string]: KernelSpec } = {
         workgroupSize: [16,16,1],
         workgroupCount: ["aRows / 16", "bCols / 16", 1],
         shader: `
-        let outputRow = global_id.x;
-        let outputCol = global_id.y;
-        if (outputRow >= parameters.aRows || outputCol >= parameters.bCols) {
-            return;
+        const TILE_M = 4;
+        const TILE_N = 4;
+        let row = global_id.x * TILE_M;
+        let col = global_id.y * TILE_N;
+
+        var sums: array<array<f32, TILE_N>, TILE_M>;
+        for (var i = 0u; i < TILE_M; i = i + 1u) {
+            for (var j = 0u; j < TILE_N; j = j + 1u) {
+                sums[i][j] = 0.0;
+            }
         }
 
-        var sum = 0.0;
-        var aIndex = outputRow * parameters.aRowStride;
-        var bIndex = outputCol * parameters.bColStride;
-        for (var i: u32 = 0u; i < parameters.aCols; i = i + 1u) {
-            // result = result + a[row * parameters.aRows + i] * b[i * parameters.bCols + col];
-            sum = sum + a[aIndex] * b[bIndex];
-            aIndex = aIndex + parameters.aColStride;
-            bIndex = bIndex + parameters.bRowStride;
-            
+        for (var k: u32 = 0u; k < parameters.aCols; k = k + 1u) {
+
+            for (var i = 0u; i < TILE_M; i = i +1u) {
+                let a_element = a[(row + i) * parameters.aRowStride + k * parameters.aColStride];
+                for (var j = 0u; j < TILE_N; j = j + 1u) {
+                    let b_element = b[k * parameters.bColStride + (col + j) * parameters.bRowStride];
+                    sums[i][j] += a_element * b_element;
+                }
+                
+            }
         }
-        let outputIndex = outputCol + outputRow * parameters.bCols;
-        // output[row * parameters.bCols + col] = sum;
-        result[outputIndex] = sum;
+        // Write results back to the output matrix
+        for (var i = 0u; i < TILE_M; i++) {
+            let outRow = row + i;
+            if (outRow >= parameters.aRows) { continue; }
+
+            for (var j = 0u; j < TILE_N; j++) {
+                let outCol = col + j;
+                if (outCol >= parameters.bCols) { continue; }
+
+                let outIndex = outRow * parameters.bCols + outCol;
+                result[outIndex] = sums[i][j];
+            }
+        }
 
         `
     },
@@ -651,17 +665,12 @@ export const kernels: { [name: string]: KernelSpec } = {
             return;
         }
 
-        // var sum = 0.0;
         var sum00: f32 = 0.0;
         var sum01: f32 = 0.0;
         var sum02: f32 = 0.0;
         var sum03: f32 = 0.0;
         var aIndex = outputRow * parameters.aRowStride;
 
-        // var bIndex0 = outputCol * parameters.bColStride;
-        // var bIndex1 = (outputCol + 1u) * parameters.bColStride;
-        // var bIndex2 = (outputCol + 2u) * parameters.bColStride;
-        // var bIndex3 = (outputCol + 3u) * parameters.bColStride;
 
         var bIndex00 = outputCol * parameters.bColStride;
         var bIndex01 = bIndex00 + parameters.bColStride;
@@ -684,7 +693,6 @@ export const kernels: { [name: string]: KernelSpec } = {
             
         }
         let outputIndex = outputCol + outputRow * parameters.bCols;
-        // output[row * parameters.bCols + col] = sum;
         result[outputIndex] = sum00;
         result[outputIndex + 1u ] = sum01;
         result[outputIndex + 2u ] = sum02;
@@ -804,7 +812,7 @@ export const kernels: { [name: string]: KernelSpec } = {
         ],
         outputs: [
             {
-                name: "output",
+                name: "result",
                 shaderType: "array<f32>",
                 size: "batchSize * aRows * bCols",
             },
@@ -812,24 +820,50 @@ export const kernels: { [name: string]: KernelSpec } = {
         workgroupSize: [8, 8, 4],
         workgroupCount: ["aRows/8", "bCols/8", "batchSize/4"],
         shader: `
+    const TILESIZE = 4;
     let outputRow = global_id.x;
-    let outputCol = global_id.y;
+    let outputCol = global_id.y * TILESIZE;
     let outputBatch = global_id.z;
+
     if (outputRow >= parameters.aRows || outputCol >= parameters.bCols || outputBatch >= parameters.batchSize) {
         return;
     }
-    var result = 0.0;
+    var sum00: f32 = 0.0;
+    var sum01: f32 = 0.0;
+    var sum02: f32 = 0.0;
+    var sum03: f32 = 0.0;
+
     var aIndex = outputBatch * parameters.aBatchStride + outputRow * parameters.aRowStride;
-    var bIndex = outputBatch * parameters.bBatchStride + outputCol * parameters.bColStride;
+
+    var bIndex00 = outputBatch * parameters.bBatchStride + outputCol * parameters.bColStride;
+    var bIndex01 = bIndex00 + parameters.bColStride;
+    var bIndex02 = bIndex00 + 2u * parameters.bColStride;
+    var bIndex03 = bIndex00 + 3u * parameters.bColStride;
+
     for (var aCol = 0u; aCol < parameters.aCols; aCol = aCol + 1u) {
-        result = result + a[aIndex] * b[bIndex];
+
+        let a_elem = a[aIndex];
+
+        sum00 = sum00 + a_elem * b[bIndex00];
+        sum01 = sum01 + a_elem * b[bIndex01];
+        sum02 = sum02 + a_elem * b[bIndex02];
+        sum03 = sum03 + a_elem * b[bIndex03];
+
         aIndex = aIndex + parameters.aColStride;
-        bIndex = bIndex + parameters.bRowStride;
+
+        bIndex00 = bIndex00 + parameters.bRowStride;
+        bIndex01 = bIndex01 + parameters.bRowStride;
+        bIndex02 = bIndex02 + parameters.bRowStride;
+        bIndex03 = bIndex03 + parameters.bRowStride;
     }
     let outputRowStride = parameters.bCols;
     let outputBatchStride = parameters.aRows * outputRowStride;
     let outputIndex = outputBatch * outputBatchStride + outputRow * outputRowStride + outputCol;
-    output[outputIndex] = result;
+
+    result[outputIndex] = sum00;
+    result[outputIndex + 1u ] = sum01;
+    result[outputIndex + 2u ] = sum02;
+    result[outputIndex + 3u ] = sum03;
 `
     },
     sumDim: {
