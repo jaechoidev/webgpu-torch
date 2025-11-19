@@ -568,39 +568,38 @@ export const kernels: { [name: string]: KernelSpec } = {
         let row = global_id.x * TILE_M;
         let col = global_id.y * TILE_N;
 
+        if (row >= parameters.aRows || col >= parameters.bCols) {
+            return;
+        }
+
         var sums: array<array<f32, TILE_N>, TILE_M>;
         for (var i = 0u; i < TILE_M; i = i + 1u) {
             for (var j = 0u; j < TILE_N; j = j + 1u) {
-                sums[i][j] = 0.0;
+            sums[i][j] = 0.0;
             }
         }
 
         for (var k: u32 = 0u; k < parameters.aCols; k = k + 1u) {
-
-            for (var i = 0u; i < TILE_M; i = i +1u) {
-                let a_element = a[(row + i) * parameters.aRowStride + k * parameters.aColStride];
-                for (var j = 0u; j < TILE_N; j = j + 1u) {
-                    let b_element = b[k * parameters.bColStride + (col + j) * parameters.bRowStride];
-                    sums[i][j] += a_element * b_element;
-                }
-                
+            for (var i = 0u; i < TILE_M; i = i + 1u) {
+            let a_element = a[(row + i) * parameters.aRowStride + k * parameters.aColStride];
+            for (var j = 0u; j < TILE_N; j = j + 1u) {
+                let b_element = b[k * parameters.bRowStride + (col + j) * parameters.bColStride];
+                sums[i][j] = sums[i][j] + a_element * b_element;
+            }
             }
         }
-        // Write results back to the output matrix
-        for (var i = 0u; i < TILE_M; i++) {
+
+        for (var i = 0u; i < TILE_M; i = i + 1u) {
             let outRow = row + i;
             if (outRow >= parameters.aRows) { continue; }
-
-            for (var j = 0u; j < TILE_N; j++) {
-                let outCol = col + j;
-                if (outCol >= parameters.bCols) { continue; }
-
+            for (var j = 0u; j < TILE_N; j = j + 1u) {
+            let outCol = col + j;
+            if (outCol >= parameters.bCols) { continue; }
                 let outIndex = outRow * parameters.bCols + outCol;
                 result[outIndex] = sums[i][j];
             }
-        }
-
-        `
+        }       
+    `
     },
     fastmm2: {
         name: "fastmm2",
