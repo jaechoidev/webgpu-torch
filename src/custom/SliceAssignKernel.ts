@@ -28,74 +28,74 @@ export const sliceAssignKernel: KernelSpec = {
     { name: "start2", shaderType: "u32" },
     { name: "start3", shaderType: "u32" },
     { name: "start4", shaderType: "u32" },
+
+    // Pre-computed strides for faster indexing
+    { name: "destStride0", shaderType: "u32" },
+    { name: "destStride1", shaderType: "u32" },
+    { name: "destStride2", shaderType: "u32" },
+    { name: "destStride3", shaderType: "u32" },
+    { name: "srcStride0", shaderType: "u32" },
+    { name: "srcStride1", shaderType: "u32" },
+    { name: "srcStride2", shaderType: "u32" },
+    { name: "srcStride3", shaderType: "u32" },
   ],
   inputs: [
     { name: "src", shaderType: "array<f32>" }
   ],
   outputs: [
-    { name: "tensor", shaderType: "array<f32>", size: "destD0 * destD1 * destD2 * destD3 * destD4" } 
+    { name: "tensor", shaderType: "array<f32>", size: "destD0 * destD1 * destD2 * destD3 * destD4" }
   ],
-  workgroupSize: [16, 16, 1],
+  workgroupSize: [256, 1, 1],
   workgroupCount: [
-    "(destD2 + 15) / 16", 
-    "(destD1 + 15) / 16", 
-    "destD0 * destD3 * destD4" 
+    // OPTIMIZATION: Each thread processes 4 elements, so divide by 4
+    "((srcD0 * srcD1 * srcD2 * srcD3 * srcD4 + 3) / 4 + 255) / 256",
+    1,
+    1
   ],
   workgroupVariables: [],
   shader: `
-    let d2 = global_id.x;  // Width
-    let d1 = global_id.y;  // Height
+    // OPTIMIZATION: Process 4 elements per thread for better bandwidth utilization
+    let thread_idx = global_id.x;
+    let total_elements = parameters.srcD0 * parameters.srcD1 * parameters.srcD2 *
+                         parameters.srcD3 * parameters.srcD4;
 
-    var remaining = global_id.z;
-    let d0 = remaining / (parameters.destD3 * parameters.destD4);
-    remaining = remaining % (parameters.destD3 * parameters.destD4);
-    let d3 = remaining / parameters.destD4;
-    let d4 = remaining % parameters.destD4;
+    let base_idx = thread_idx * 4u;
 
-    if (d0 >= parameters.destD0 || d1 >= parameters.destD1 || d2 >= parameters.destD2 ||
-        d3 >= parameters.destD3 || d4 >= parameters.destD4) {
-      return;
-    }
+    // OPTIMIZATION: Loop unrolling - process 4 elements per thread
+    for (var i = 0u; i < 4u; i = i + 1u) {
+      let linear_idx = base_idx + i;
 
-    let tensor_idx = d0 * parameters.destD1 * parameters.destD2 * parameters.destD3 * parameters.destD4 +
-                    d1 * parameters.destD2 * parameters.destD3 * parameters.destD4 +
-                    d2 * parameters.destD3 * parameters.destD4 +
-                    d3 * parameters.destD4 +
+      if (linear_idx >= total_elements) {
+        return;
+      }
+
+      // Decompose linear index to 5D source coordinates
+      var temp = linear_idx;
+      let s4 = temp % parameters.srcD4;
+      temp = temp / parameters.srcD4;
+      let s3 = temp % parameters.srcD3;
+      temp = temp / parameters.srcD3;
+      let s2 = temp % parameters.srcD2;
+      temp = temp / parameters.srcD2;
+      let s1 = temp % parameters.srcD1;
+      let s0 = temp / parameters.srcD1;
+
+      // Compute destination coordinates by adding offset
+      let d0 = s0 + parameters.start0;
+      let d1 = s1 + parameters.start1;
+      let d2 = s2 + parameters.start2;
+      let d3 = s3 + parameters.start3;
+      let d4 = s4 + parameters.start4;
+
+      // Direct index computation using strides
+      let dst_idx = d0 * parameters.destStride0 +
+                    d1 * parameters.destStride1 +
+                    d2 * parameters.destStride2 +
+                    d3 * parameters.destStride3 +
                     d4;
 
-    var in_slice = true;
-    if (d0 < parameters.start0 || d0 >= parameters.start0 + parameters.srcD0) {
-      in_slice = false;
-    }
-    if (d1 < parameters.start1 || d1 >= parameters.start1 + parameters.srcD1) {
-      in_slice = false;
-    }
-    if (d2 < parameters.start2 || d2 >= parameters.start2 + parameters.srcD2) {
-      in_slice = false;
-    }
-    if (d3 < parameters.start3 || d3 >= parameters.start3 + parameters.srcD3) {
-      in_slice = false;
-    }
-    if (d4 < parameters.start4 || d4 >= parameters.start4 + parameters.srcD4) {
-      in_slice = false;
-    }
-
-    if (in_slice) {
-      let s0 = d0 - parameters.start0;
-      let s1 = d1 - parameters.start1;
-      let s2 = d2 - parameters.start2;
-      let s3 = d3 - parameters.start3;
-      let s4 = d4 - parameters.start4;
-
-      let src_idx = s0 * parameters.srcD1 * parameters.srcD2 * parameters.srcD3 * parameters.srcD4 +
-                    s1 * parameters.srcD2 * parameters.srcD3 * parameters.srcD4 +
-                    s2 * parameters.srcD3 * parameters.srcD4 +
-                    s3 * parameters.srcD4 +
-                    s4;
-
-      tensor[tensor_idx] = src[src_idx];
-    } else {
-      // No change to tensor outside the slice region
+      // Direct copy with memory coalescing
+      tensor[dst_idx] = src[linear_idx];
     }
   `
 };

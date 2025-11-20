@@ -1611,5 +1611,283 @@ export const kernels: { [name: string]: KernelSpec } = {
 
     output[flat_out] = value;
 `
+    },
+    im2col: {
+        name: "im2col",
+        config: [
+            {
+                name: "dtype",
+            },
+        ],
+        parameters: [
+            {
+                name: "batchSize",
+                shaderType: "u32",
+            },
+            {
+                name: "inputChannels",
+                shaderType: "u32",
+            },
+            {
+                name: "inputHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "inputWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "kernelHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "kernelWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "outputHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "outputWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "padH",
+                shaderType: "u32",
+            },
+            {
+                name: "padW",
+                shaderType: "u32",
+            },
+            {
+                name: "strideH",
+                shaderType: "u32",
+            },
+            {
+                name: "strideW",
+                shaderType: "u32",
+            },
+            {
+                name: "dilationH",
+                shaderType: "u32",
+            },
+            {
+                name: "dilationW",
+                shaderType: "u32",
+            },
+        ],
+        inputs: [
+            {
+                name: "input",
+                shaderType: "array<f32>",
+            },
+        ],
+        outputs: [
+            {
+                name: "output",
+                shaderType: "array<f32>",
+                size: "batchSize * outputHeight * outputWidth * inputChannels * kernelHeight * kernelWidth",
+            },
+        ],
+        workgroupSize: [16, 16, 1],
+        workgroupCount: [
+            "(inputChannels * kernelHeight * kernelWidth + 15) / 16",
+            "(outputHeight + 15) / 16",
+            "batchSize * outputWidth"
+        ],
+        shader: `
+    // Im2col transformation for convolution
+    // Unfolds input tensor into a matrix where each row is a receptive field
+    // Input: [B, C_in, H, W]
+    // Output: [B * H_out * W_out, C_in * K_H * K_W]
+    //
+    // Each thread computes ONE element of the output matrix (no loops to avoid 64-iteration bug)
+
+    let batch_and_x = global_id.z;  // [0, B * W_out)
+    let out_y = global_id.y;        // [0, H_out)
+    let col_idx = global_id.x;      // [0, C_in * K_H * K_W)
+
+    let batch = batch_and_x / parameters.outputWidth;
+    let out_x = batch_and_x % parameters.outputWidth;
+
+    let K = parameters.inputChannels * parameters.kernelHeight * parameters.kernelWidth;
+    let N = parameters.outputHeight * parameters.outputWidth;
+
+    // Bounds check
+    if (col_idx >= K || out_y >= parameters.outputHeight || batch >= parameters.batchSize) {
+        return;
+    }
+
+    let spatial_idx_within_batch = out_y * parameters.outputWidth + out_x;
+
+    // Decode col_idx into (c, ky, kx)
+    let kh_kw = parameters.kernelHeight * parameters.kernelWidth;
+    let c = col_idx / kh_kw;
+    let ky_kx = col_idx % kh_kw;
+    let ky = ky_kx / parameters.kernelWidth;
+    let kx = ky_kx % parameters.kernelWidth;
+
+    // Calculate input position with stride, padding, and dilation
+    let in_y = i32(out_y * parameters.strideH + ky * parameters.dilationH) - i32(parameters.padH);
+    let in_x = i32(out_x * parameters.strideW + kx * parameters.dilationW) - i32(parameters.padW);
+
+    var value = 0.0;
+
+    // Check bounds (zero padding)
+    if (in_y >= 0 && in_y < i32(parameters.inputHeight) &&
+        in_x >= 0 && in_x < i32(parameters.inputWidth)) {
+        let input_idx = batch * (parameters.inputChannels * parameters.inputHeight * parameters.inputWidth) +
+                       c * (parameters.inputHeight * parameters.inputWidth) +
+                       u32(in_y) * parameters.inputWidth +
+                       u32(in_x);
+        value = input[input_idx];
+    }
+
+    // Write to output matrix: [B * H_out * W_out, C_in * K_H * K_W]
+    // Row-major layout: each row is a receptive field
+    let spatial_idx = batch * N + spatial_idx_within_batch;
+    let output_idx = spatial_idx * K + col_idx;
+    output[output_idx] = value;
+`
+    },
+    im2col_transposed: {
+        name: "im2col_transposed",
+        config: [
+            {
+                name: "dtype",
+            },
+        ],
+        parameters: [
+            {
+                name: "batchSize",
+                shaderType: "u32",
+            },
+            {
+                name: "inputChannels",
+                shaderType: "u32",
+            },
+            {
+                name: "inputHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "inputWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "kernelHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "kernelWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "outputHeight",
+                shaderType: "u32",
+            },
+            {
+                name: "outputWidth",
+                shaderType: "u32",
+            },
+            {
+                name: "padH",
+                shaderType: "u32",
+            },
+            {
+                name: "padW",
+                shaderType: "u32",
+            },
+            {
+                name: "strideH",
+                shaderType: "u32",
+            },
+            {
+                name: "strideW",
+                shaderType: "u32",
+            },
+            {
+                name: "dilationH",
+                shaderType: "u32",
+            },
+            {
+                name: "dilationW",
+                shaderType: "u32",
+            },
+        ],
+        inputs: [
+            {
+                name: "input",
+                shaderType: "array<f32>",
+            },
+        ],
+        outputs: [
+            {
+                name: "output",
+                shaderType: "array<f32>",
+                size: "batchSize * outputHeight * outputWidth * inputChannels * kernelHeight * kernelWidth",
+            },
+        ],
+        workgroupSize: [16, 16, 1],
+        workgroupCount: [
+            "(inputChannels * kernelHeight * kernelWidth + 15) / 16",
+            "(outputHeight + 15) / 16",
+            "batchSize * outputWidth"
+        ],
+        shader: `
+    // Im2col transformation for convolution - TRANSPOSED OUTPUT
+    // Unfolds input tensor into a matrix where each COLUMN is a receptive field
+    // Input: [B, C_in, H, W]
+    // Output: [C_in * K_H * K_W, B * H_out * W_out] (transposed compared to regular im2col)
+    //
+    // This avoids the need for a separate transpose operation, saving memory
+
+    let batch_and_x = global_id.z;  // [0, B * W_out)
+    let out_y = global_id.y;        // [0, H_out)
+    let col_idx = global_id.x;      // [0, C_in * K_H * K_W)
+
+    let batch = batch_and_x / parameters.outputWidth;
+    let out_x = batch_and_x % parameters.outputWidth;
+
+    let K = parameters.inputChannels * parameters.kernelHeight * parameters.kernelWidth;
+    let N = parameters.outputHeight * parameters.outputWidth;
+
+    // Bounds check
+    if (col_idx >= K || out_y >= parameters.outputHeight || batch >= parameters.batchSize) {
+        return;
+    }
+
+    let spatial_idx_within_batch = out_y * parameters.outputWidth + out_x;
+
+    // Decode col_idx into (c, ky, kx)
+    let kh_kw = parameters.kernelHeight * parameters.kernelWidth;
+    let c = col_idx / kh_kw;
+    let ky_kx = col_idx % kh_kw;
+    let ky = ky_kx / parameters.kernelWidth;
+    let kx = ky_kx % parameters.kernelWidth;
+
+    // Calculate input position with stride, padding, and dilation
+    let in_y = i32(out_y * parameters.strideH + ky * parameters.dilationH) - i32(parameters.padH);
+    let in_x = i32(out_x * parameters.strideW + kx * parameters.dilationW) - i32(parameters.padW);
+
+    var value = 0.0;
+
+    // Check bounds (zero padding)
+    if (in_y >= 0 && in_y < i32(parameters.inputHeight) &&
+        in_x >= 0 && in_x < i32(parameters.inputWidth)) {
+        let input_idx = batch * (parameters.inputChannels * parameters.inputHeight * parameters.inputWidth) +
+                       c * (parameters.inputHeight * parameters.inputWidth) +
+                       u32(in_y) * parameters.inputWidth +
+                       u32(in_x);
+        value = input[input_idx];
+    }
+
+    // Write to output matrix: [C_in * K_H * K_W, B * H_out * W_out]
+    // TRANSPOSED layout compared to regular im2col
+    let spatial_idx = batch * N + spatial_idx_within_batch;
+    let output_idx = col_idx * (parameters.batchSize * N) + spatial_idx;
+    output[output_idx] = value;
+`
     }
 };
