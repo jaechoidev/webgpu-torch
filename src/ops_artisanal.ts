@@ -764,7 +764,7 @@ export function mm(input: Tensor, other: Tensor): Tensor {
     }
 }
 export function fastmm(input: Tensor, other: Tensor): Tensor {
-    console.log('fastmm func\n')
+    console.log(`CYP: fastmm func ${input.shape} x ${other.shape}`)
     if (shouldCreateGradient(input, other)) {
         throw new Error("mm gradient not supported yet");
     } else {
@@ -790,7 +790,7 @@ export function fastmm(input: Tensor, other: Tensor): Tensor {
     // console.log(input.strides)
     console.log(`CYP: ${input.shape}, ${other.shape}, ${input.strides}, ${other.strides}`);
     return input.runKernel(
-        "fastmm2",
+        "fastmm_tile_8_row",
         { resultDtype: input.dtype },
         params,
         [[params.aRows, params.bCols]],

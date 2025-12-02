@@ -15,7 +15,6 @@ import { permuteKernel } from './PermuteKernel';
 import { sliceAssignKernel } from './SliceAssignKernel';
 import { maxpool2dKernel } from './MaxPool2dKernel';
 import { clampKernel } from './ClampKernel';
-
 class TensorCache {
   private cache = new Map<string, Tensor[]>();
   private maxSize = 10;

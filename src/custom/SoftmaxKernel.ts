@@ -171,136 +171,9 @@ export const softmaxKernel: KernelSpec = {
   `
 };
 
-export const softmax_fast_kernel: KernelSpec = {
-  name: "softmax_fast",
-  config: [
-    { name: "numThreads" }
-  ],
-  parameters: [
-    { name: "packedCols", shaderType: "i32" },
-    { name: "rows", shaderType: "i32" },
-    { name: "components", shaderType: "i32" }
-  ],
-  inputs: [
-    { name: "x", shaderType: "array<f32>" }
-  ],
-  outputs: [
-    {
-      name: "result", 
-      shaderType: "array<f32>",
-      size: "rows * packedCols * components"
-    }
-  ],
-  workgroupSize: [64, 1, 1], // Default to 64, but you might want to make this configurable
-  workgroupCount: [
-    "rows", // One workgroup per row
-    1,
-    1
-  ],
-  workgroupVariables: [
-    { name: "rowMaxShared", shaderType: "f32" },
-    { name: "rowSumShared", shaderType: "f32" },
-    { name: "threadShared", shaderType: ["array<f32>", 64] }
-  ],
-  shader: `
-    var<workgroup> rowMaxShared: f32;
-    var<workgroup> rowSumShared: f32;
-    var<workgroup> threadShared: array<f32, 64>;
-    
-    let wg = 64u;
-    let lindex = local_id.x;
-    let row = workgroup_id.x;
-    let cols = parameters.packedCols;
-    let row_stride = parameters.packedCols;
-
-    // ---------------------------------------------------------------------
-    // PASS 1: find row max (parallel reduction)
-    // ---------------------------------------------------------------------
-    
-    var threadMax: f32 = -3.402823e+38;
-    var col = lindex;
-    
-    while (col < cols) {
-      let index = row * row_stride + col;
-      let value = x[index];
-      threadMax = max(threadMax, value);
-      col += wg;
-    }
-    
-    if (lindex < cols) {
-      threadShared[lindex] = threadMax;
-    }
-    workgroupBarrier();
-
-    // Parallel reduction for max
-    var reduceSize = min(cols, wg);
-    var currSize = reduceSize >> 1;
-    
-    while (currSize > 0) {
-      reduceSize = currSize + (reduceSize & 1);
-      if (lindex < currSize) {
-        threadShared[lindex] = max(threadShared[lindex], threadShared[lindex + reduceSize]);
-      }
-      workgroupBarrier();
-      currSize = reduceSize >> 1;
-    }
-    
-    if (lindex == 0) {
-      rowMaxShared = threadShared[0];
-    }
-    workgroupBarrier();
-
-    // ---------------------------------------------------------------------
-    // PASS 2: find row sum of exp(x - max) (parallel reduction)
-    // ---------------------------------------------------------------------
-    
-    var threadSum: f32 = 0.0;
-    col = lindex;
-    
-    while (col < cols) {
-      let index = row * row_stride + col;
-      let subExp = exp(x[index] - rowMaxShared);
-      threadSum += subExp;
-      col += wg;
-    }
-    
-    threadShared[lindex] = threadSum;
-    workgroupBarrier();
-
-    // Parallel reduction for sum
-    currSize = wg >> 1;
-    while (currSize > 0) {
-      if (lindex < currSize) {
-        threadShared[lindex] += threadShared[lindex + currSize];
-      }
-      workgroupBarrier();
-      currSize = currSize >> 1;
-    }
-    
-    if (lindex == 0) {
-      rowSumShared = threadShared[0];
-    }
-    workgroupBarrier();
-
-    // ---------------------------------------------------------------------
-    // PASS 3: calculate final values
-    // ---------------------------------------------------------------------
-    
-    col = lindex;
-    while (col < cols) {
-      let index = row * row_stride + col;
-      var value = exp(x[index] - rowMaxShared) / rowSumShared;
-      // max operation protects against NaN since all values should be >=0
-      value = max(value, 0.0);
-      result[index] = value;
-      col += wg;
-    }
-  `
-};
-
 
 export const squaremaxKernel: KernelSpec = {
-  name: "squaremax_dim",
+  name: "squaremax",
   config: [
     { name: "numThreads" }
   ],
@@ -423,7 +296,7 @@ export const squaremaxKernel: KernelSpec = {
     }
 
     // 2. Compute sum of squares (normalized)
-    // sum = sum( (x/maxAbs)^2 )
+    // sum = sum( (x - maxAbs + threshold)^2 )
     var sumSq = 0.0;
     for (var i = 0u; i < reduceSize; i = i + 1u) {
       var idx_d0 = d0;
@@ -440,11 +313,13 @@ export const squaremaxKernel: KernelSpec = {
 
       let flatIdx = idx_d0 * stride0 + idx_d1 * stride1 + idx_d2 * stride2 + idx_d3 * stride3 + idx_d4 * stride4;
       let val = input[flatIdx];
-      let norm = val / maxAbs; 
-      sumSq = sumSq + (norm * norm);
+      let shifted = val - maxAbs + 5.0; 
+
+      let rectified = max(shifted, 0.0);
+      sumSq = sumSq + (rectified * rectified);
     }
 
-    // 3. Compute and write output: (x/maxAbs)^2 / sumSq
+    // 3. Compute and write output: (x - maxAbs + 5.0)^2 / sumSq
     for (var i = 0u; i < reduceSize; i = i + 1u) {
       var idx_d0 = d0;
       var idx_d1 = d1;
@@ -460,14 +335,13 @@ export const squaremaxKernel: KernelSpec = {
 
       let flatIdx = idx_d0 * stride0 + idx_d1 * stride1 + idx_d2 * stride2 + idx_d3 * stride3 + idx_d4 * stride4;
       let val = input[flatIdx];
-      let norm = val / maxAbs;
-      
-      // If sumSq is effectively zero (inputs were all zero), output 0 to avoid NaN
-      if (sumSq < 1e-12) {
-          output[flatIdx] = 0.0;
-      } else {
-          output[flatIdx] = (norm * norm) / sumSq;
-      }
+      let shifted = val - maxAbs + 5.0;
+
+      let rectified = max(shifted, 0.0);
+
+      let numerator = rectified * rectified;
+
+      output[flatIdx] = numerator / (sumSq + 1e-6);
     }
   `
 };
