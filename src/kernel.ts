@@ -368,8 +368,8 @@ export function getKernelShaderCode(
     shaderCodeParts.push("    " + configdShader);
     shaderCodeParts.push("}");
     const shaderCode = shaderCodeParts.join("\n");
-    // if (spec.name === "mean_dim") {
-    //     console.log(shaderCode);
+    // if (spec.name === "bmm") {
+    //     console.log("batch mm shader\n",shaderCode);
     // }
     return shaderCode;
 }
@@ -413,6 +413,7 @@ export function getKernelJavaScriptCode(
     config: KernelConfig
 ): string {
     const [configdShader, env] = configShader(spec, config);
+    // console.log("CYP: config", config)
 
     const usesGlobalId = configdShader.includes("global_id");
     const usesLocalId = configdShader.includes("local_id");

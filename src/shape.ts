@@ -245,6 +245,8 @@ export function broadcastBatchedMatmul(
         outputShape.splice(squeezeOutput, 1);
     }
 
+    // console.log(`shape.ts bcast batched matmul output\n cont stride shape: ${contiguousStridedShape(outputShape).shape} input shape: ${inputShape}, o shape: ${otherShape},`)
+
     return {
         output: contiguousStridedShape(outputShape),
         a: { shape: inputShape, strides: inputStrides },

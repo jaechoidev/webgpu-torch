@@ -1,5 +1,5 @@
 import { KernelSpec } from "./kernel";
-
+import {matmulShader} from "./matmulshader"
 export const kernels: { [name: string]: KernelSpec } = {
     conv2d: {
         name: "conv2d",
@@ -502,8 +502,588 @@ export const kernels: { [name: string]: KernelSpec } = {
     }
     let outputIndex = outputCol + outputRow * parameters.bCols;
     output[outputIndex] = result;
+
 `
     },
+    naivemm: {
+        name: "naivemm",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            {
+                name: "aRows", 
+                shaderType: "u32"
+            },
+            {
+                name: "aCols", 
+                shaderType: "u32"
+            },
+            {
+                name: "bCols", 
+                shaderType: "u32"
+            },
+            {
+                name: "aRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "aColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bColStride",
+                shaderType: "u32",
+            },
+
+        ],
+        inputs: [
+            {
+                name: "a", 
+                shaderType: "array<f32>" 
+            },
+            {
+                name: "b",
+                shaderType: "array<f32>"
+            },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "aRows * bCols"
+            }
+        ],
+        workgroupSize: [16,16,1],
+        workgroupCount: ["(aRows + 15) / 16", "(bCols + 63) / 64", 1],
+        shader: `
+
+        const TILESIZE = 4;
+        let outputRow = global_id.x;
+        let outputCol = global_id.y * TILESIZE;
+        if (outputRow >= parameters.aRows || outputCol >= parameters.bCols) {
+            return;
+        }
+
+        var sum00: f32 = 0.0;
+        var sum01: f32 = 0.0;
+        var sum02: f32 = 0.0;
+        var sum03: f32 = 0.0;
+        var aIndex = outputRow * parameters.aRowStride;
+
+
+        var bIndex00 = outputCol * parameters.bColStride;
+        var bIndex01 = bIndex00 + parameters.bColStride;
+        var bIndex02 = bIndex00 + 2u * parameters.bColStride;
+        var bIndex03 = bIndex00 + 3u * parameters.bColStride;
+
+        for (var i: u32 = 0u; i < parameters.aCols; i = i + 1u) {
+            // result = result + a[row * parameters.aRows + i] * b[i * parameters.bCols + col];
+            let a_elem = a[aIndex];
+            sum00 = sum00 + a_elem * b[bIndex00];
+            sum01 = sum01 + a_elem * b[bIndex01];
+            sum02 = sum02 + a_elem * b[bIndex02];
+            sum03 = sum03 + a_elem * b[bIndex03];
+
+            aIndex = aIndex + parameters.aColStride;
+            bIndex00 = bIndex00 + parameters.bRowStride;
+            bIndex01 = bIndex01 + parameters.bRowStride;
+            bIndex02 = bIndex02 + parameters.bRowStride;
+            bIndex03 = bIndex03 + parameters.bRowStride;
+            
+        }
+        let outputIndex = outputCol + outputRow * parameters.bCols;
+        result[outputIndex] = sum00;
+        result[outputIndex + 1u ] = sum01;
+        result[outputIndex + 2u ] = sum02;
+        result[outputIndex + 3u ] = sum03;
+    `
+    },
+    fastmm_tile_8_col: {
+        name: "fastmm16_tile_8_col",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            { name: "aRows", shaderType: "u32" },
+            { name: "aCols", shaderType: "u32" },
+            { name: "bCols", shaderType: "u32" },            
+            { name: "aRowStride", shaderType: "u32" },
+            { name: "aColStride", shaderType: "u32" },
+            { name: "bRowStride", shaderType: "u32" },
+            { name: "bColStride", shaderType: "u32" },
+        ],
+        inputs: [
+            { name: "a", shaderType: "array<f32>" },
+            { name: "b", shaderType: "array<f32>" },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "aRows * bCols"
+            }
+        ],
+        workgroupSize: [16, 16, 1], 
+        workgroupCount: ["(bCols + 127) / 128", "(aRows + 127) / 128", 1], 
+
+        shader: `
+        const TILE_M = 8u; // Rows per thread
+        const TILE_N = 8u; // Cols per thread
+        
+        let row = global_id.y * TILE_M;
+        let col = global_id.x * TILE_N;
+
+        if (row >= parameters.aRows || col >= parameters.bCols) {
+            return;
+        }
+
+        // Initialize 4x4 accumulator registers
+        var sums: array<array<f32, TILE_N>, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                sums[i][j] = 0.0;
+            }
+        }
+
+        // Pre-calculate base pointers for the 4x4 block to avoid complex math in inner loop
+        // We need 4 pointers for A (one per row in the tile)
+        // and 4 pointers for B (one per col in the tile)
+        
+        var a_ptrs: array<u32, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            a_ptrs[i] = (row + i) * parameters.aRowStride;
+        }
+
+        var b_ptrs: array<u32, TILE_N>;
+        for (var j = 0u; j < TILE_N; j++) {
+            b_ptrs[j] = (col + j) * parameters.bColStride;
+        }
+
+        // Main Loop
+        for (var k = 0u; k < parameters.aCols; k = k + 1u) {
+            
+            // For each row in the 4x4 tile
+            for (var i = 0u; i < TILE_M; i++) {
+                // Load A value. Note: We check bounds in case matrix height isn't multiple of 4
+                if ((row + i) < parameters.aRows) {
+                    let a_val = a[a_ptrs[i]];
+                    
+                    // Multiply by B values for all 4 columns
+                    for (var j = 0u; j < TILE_N; j++) {
+                        if ((col + j) < parameters.bCols) {
+                            let b_val = b[b_ptrs[j]];
+                            sums[i][j] = sums[i][j] + a_val * b_val;
+                        }
+                    }
+                }
+            }
+
+            // Advance pointers to next K
+            for (var i = 0u; i < TILE_M; i++) {
+                a_ptrs[i] = a_ptrs[i] + parameters.aColStride;
+            }
+            for (var j = 0u; j < TILE_N; j++) {
+                b_ptrs[j] = b_ptrs[j] + parameters.bRowStride;
+            }
+        }
+
+        // Write results
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                let output_row = row + i;
+                let output_col = col + j;
+                
+                if (output_row < parameters.aRows && output_col < parameters.bCols) {
+                    let index = output_row * parameters.bCols + output_col;
+                    result[index] = sums[i][j];
+                }
+            }
+        }
+        `
+    },
+    fastmm_tile_8_row: {
+        name: "fastmm_tile_8_row",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            { name: "aRows", shaderType: "u32" },
+            { name: "aCols", shaderType: "u32" },
+            { name: "bCols", shaderType: "u32" },            
+            { name: "aRowStride", shaderType: "u32" },
+            { name: "aColStride", shaderType: "u32" },
+            { name: "bRowStride", shaderType: "u32" },
+            { name: "bColStride", shaderType: "u32" },
+        ],
+        inputs: [
+            { name: "a", shaderType: "array<f32>" },
+            { name: "b", shaderType: "array<f32>" },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "aRows * bCols"
+            }
+        ],
+        workgroupSize: [16, 16, 1], 
+        workgroupCount: ["(aRows + 127) / 128", "(bCols + 127) / 128", 1], 
+
+        shader: `
+        const TILE_M = 8u; // Rows per thread
+        const TILE_N = 8u; // Cols per thread
+        
+        let row = global_id.x * TILE_M;
+        let col = global_id.y * TILE_N;
+
+        if (row >= parameters.aRows || col >= parameters.bCols) {
+            return;
+        }
+
+        // Initialize 4x4 accumulator registers
+        var sums: array<array<f32, TILE_N>, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                sums[i][j] = 0.0;
+            }
+        }
+
+        // Pre-calculate base pointers for the 4x4 block to avoid complex math in inner loop
+        // We need 4 pointers for A (one per row in the tile)
+        // and 4 pointers for B (one per col in the tile)
+        
+        var a_ptrs: array<u32, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            a_ptrs[i] = (row + i) * parameters.aRowStride;
+        }
+
+        var b_ptrs: array<u32, TILE_N>;
+        for (var j = 0u; j < TILE_N; j++) {
+            b_ptrs[j] = (col + j) * parameters.bColStride;
+        }
+
+        // Main Loop
+        for (var k = 0u; k < parameters.aCols; k = k + 1u) {
+            
+            // For each row in the 4x4 tile
+            for (var i = 0u; i < TILE_M; i++) {
+                // Load A value. Note: We check bounds in case matrix height isn't multiple of 4
+                if ((row + i) < parameters.aRows) {
+                    let a_val = a[a_ptrs[i]];
+                    
+                    // Multiply by B values for all 4 columns
+                    for (var j = 0u; j < TILE_N; j++) {
+                        if ((col + j) < parameters.bCols) {
+                            let b_val = b[b_ptrs[j]];
+                            sums[i][j] = sums[i][j] + a_val * b_val;
+                        }
+                    }
+                }
+            }
+
+            // Advance pointers to next K
+            for (var i = 0u; i < TILE_M; i++) {
+                a_ptrs[i] = a_ptrs[i] + parameters.aColStride;
+            }
+            for (var j = 0u; j < TILE_N; j++) {
+                b_ptrs[j] = b_ptrs[j] + parameters.bRowStride;
+            }
+        }
+
+        // Write results
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                let output_row = row + i;
+                let output_col = col + j;
+                
+                if (output_row < parameters.aRows && output_col < parameters.bCols) {
+                    let index = output_row * parameters.bCols + output_col;
+                    result[index] = sums[i][j];
+                }
+            }
+        }
+        `
+    },
+    // fastest implementation in practice
+    fastmm_row: {
+        name: "fastmm_row",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            {
+                name: "aRows", 
+                shaderType: "u32"
+            },
+            {
+                name: "aCols", 
+                shaderType: "u32"
+            },
+            {
+                name: "bCols", 
+                shaderType: "u32"
+            },            {
+                name: "aRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "aColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bColStride",
+                shaderType: "u32",
+            },
+        ],
+        inputs: [
+            {
+                name: "a", 
+                shaderType: "array<f32>" 
+            },
+            {
+                name: "b",
+                shaderType: "array<f32>"
+            },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "aRows * bCols"
+            }
+        ],
+        workgroupSize: [16,16,1],
+        workgroupCount: ["(aRows + 63) / 64", "(bCols + 63) / 64", 1],
+        shader: `
+        const TILE_M = 4u; // Rows per thread
+        const TILE_N = 4u; // Cols per thread
+        
+        let row = global_id.x * TILE_M;
+        let col = global_id.y * TILE_N;
+
+        if (row >= parameters.aRows || col >= parameters.bCols) {
+            return;
+        }
+
+        // Initialize 4x4 accumulator registers
+        var sums: array<array<f32, TILE_N>, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                sums[i][j] = 0.0;
+            }
+        }
+
+        // Pre-calculate base pointers for the 4x4 block to avoid complex math in inner loop
+        // We need 4 pointers for A (one per row in the tile)
+        // and 4 pointers for B (one per col in the tile)
+        
+        var a_ptrs: array<u32, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            a_ptrs[i] = (row + i) * parameters.aRowStride;
+        }
+
+        var b_ptrs: array<u32, TILE_N>;
+        for (var j = 0u; j < TILE_N; j++) {
+            b_ptrs[j] = (col + j) * parameters.bColStride;
+        }
+
+        // Main Loop
+        for (var k = 0u; k < parameters.aCols; k = k + 1u) {
+            
+            // For each row in the 4x4 tile
+            for (var i = 0u; i < TILE_M; i++) {
+                // Load A value. Note: We check bounds in case matrix height isn't multiple of 4
+                if ((row + i) < parameters.aRows) {
+                    let a_val = a[a_ptrs[i]];
+                    
+                    // Multiply by B values for all 4 columns
+                    for (var j = 0u; j < TILE_N; j++) {
+                        if ((col + j) < parameters.bCols) {
+                            let b_val = b[b_ptrs[j]];
+                            sums[i][j] = sums[i][j] + a_val * b_val;
+                        }
+                    }
+                }
+            }
+
+            // Advance pointers to next K
+            for (var i = 0u; i < TILE_M; i++) {
+                a_ptrs[i] = a_ptrs[i] + parameters.aColStride;
+            }
+            for (var j = 0u; j < TILE_N; j++) {
+                b_ptrs[j] = b_ptrs[j] + parameters.bRowStride;
+            }
+        }
+
+        // Write results
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                let output_row = row + i;
+                let output_col = col + j;
+                
+                if (output_row < parameters.aRows && output_col < parameters.bCols) {
+                    let index = output_row * parameters.bCols + output_col;
+                    result[index] = sums[i][j];
+                }
+            }
+        }
+
+        `
+        
+
+    },
+    fastmm_col: {
+        name: "fastmm_col",
+        config: [
+            {
+                name: "resultDtype",
+            }
+        ],
+        parameters: [
+            {
+                name: "aRows", 
+                shaderType: "u32"
+            },
+            {
+                name: "aCols", 
+                shaderType: "u32"
+            },
+            {
+                name: "bCols", 
+                shaderType: "u32"
+            },            {
+                name: "aRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "aColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bColStride",
+                shaderType: "u32",
+            },
+        ],
+        inputs: [
+            {
+                name: "a", 
+                shaderType: "array<f32>" 
+            },
+            {
+                name: "b",
+                shaderType: "array<f32>"
+            },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "aRows * bCols"
+            }
+        ],
+        workgroupSize: [16,16,1],
+        workgroupCount: ["(bCols + 63) / 64", "(aRows + 63) / 64", 1],
+        shader: `
+        const TILE_M = 4u; // Rows per thread
+        const TILE_N = 4u; // Cols per thread
+        
+        let row = global_id.y * TILE_M;
+        let col = global_id.x * TILE_N;
+
+        if (row >= parameters.aRows || col >= parameters.bCols) {
+            return;
+        }
+
+        // Initialize 4x4 accumulator registers
+        var sums: array<array<f32, TILE_N>, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                sums[i][j] = 0.0;
+            }
+        }
+
+        // Pre-calculate base pointers for the 4x4 block to avoid complex math in inner loop
+        // We need 4 pointers for A (one per row in the tile)
+        // and 4 pointers for B (one per col in the tile)
+        
+        var a_ptrs: array<u32, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            a_ptrs[i] = (row + i) * parameters.aRowStride;
+        }
+
+        var b_ptrs: array<u32, TILE_N>;
+        for (var j = 0u; j < TILE_N; j++) {
+            b_ptrs[j] = (col + j) * parameters.bColStride;
+        }
+
+        // Main Loop
+        for (var k = 0u; k < parameters.aCols; k = k + 1u) {
+            
+            // For each row in the 4x4 tile
+            for (var i = 0u; i < TILE_M; i++) {
+                // Load A value. Note: We check bounds in case matrix height isn't multiple of 4
+                if ((row + i) < parameters.aRows) {
+                    let a_val = a[a_ptrs[i]];
+                    
+                    // Multiply by B values for all 4 columns
+                    for (var j = 0u; j < TILE_N; j++) {
+                        if ((col + j) < parameters.bCols) {
+                            let b_val = b[b_ptrs[j]];
+                            sums[i][j] = sums[i][j] + a_val * b_val;
+                        }
+                    }
+                }
+            }
+
+            // Advance pointers to next K
+            for (var i = 0u; i < TILE_M; i++) {
+                a_ptrs[i] = a_ptrs[i] + parameters.aColStride;
+            }
+            for (var j = 0u; j < TILE_N; j++) {
+                b_ptrs[j] = b_ptrs[j] + parameters.bRowStride;
+            }
+        }
+
+        // Write results
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                let output_row = row + i;
+                let output_col = col + j;
+                
+                if (output_row < parameters.aRows && output_col < parameters.bCols) {
+                    let index = output_row * parameters.bCols + output_col;
+                    result[index] = sums[i][j];
+                }
+            }
+        }
+
+        `
+        
+
+    },
+
+
     bmm: {
         name: "bmm",
         config: [
@@ -569,32 +1149,58 @@ export const kernels: { [name: string]: KernelSpec } = {
         ],
         outputs: [
             {
-                name: "output",
+                name: "result",
                 shaderType: "array<f32>",
                 size: "batchSize * aRows * bCols",
             },
         ],
         workgroupSize: [8, 8, 4],
-        workgroupCount: ["aRows/8", "bCols/8", "batchSize/4"],
+        workgroupCount: ["(aRows + 63)/64", "(bCols + 7)/8", "batchSize/4"],
         shader: `
-    let outputRow = global_id.x;
-    let outputCol = global_id.y;
+    const TILESIZE = 4;
+    let outputRow = global_id.y;
+    let outputCol = global_id.x * TILESIZE;
     let outputBatch = global_id.z;
+
     if (outputRow >= parameters.aRows || outputCol >= parameters.bCols || outputBatch >= parameters.batchSize) {
         return;
     }
-    var result = 0.0;
+    var sum00: f32 = 0.0;
+    var sum01: f32 = 0.0;
+    var sum02: f32 = 0.0;
+    var sum03: f32 = 0.0;
+
     var aIndex = outputBatch * parameters.aBatchStride + outputRow * parameters.aRowStride;
-    var bIndex = outputBatch * parameters.bBatchStride + outputCol * parameters.bColStride;
+
+    var bIndex00 = outputBatch * parameters.bBatchStride + outputCol * parameters.bColStride;
+    var bIndex01 = bIndex00 + parameters.bColStride;
+    var bIndex02 = bIndex00 + 2u * parameters.bColStride;
+    var bIndex03 = bIndex00 + 3u * parameters.bColStride;
+
     for (var aCol = 0u; aCol < parameters.aCols; aCol = aCol + 1u) {
-        result = result + a[aIndex] * b[bIndex];
+
+        let a_elem = a[aIndex];
+
+        sum00 = sum00 + a_elem * b[bIndex00];
+        sum01 = sum01 + a_elem * b[bIndex01];
+        sum02 = sum02 + a_elem * b[bIndex02];
+        sum03 = sum03 + a_elem * b[bIndex03];
+
         aIndex = aIndex + parameters.aColStride;
-        bIndex = bIndex + parameters.bRowStride;
+
+        bIndex00 = bIndex00 + parameters.bRowStride;
+        bIndex01 = bIndex01 + parameters.bRowStride;
+        bIndex02 = bIndex02 + parameters.bRowStride;
+        bIndex03 = bIndex03 + parameters.bRowStride;
     }
     let outputRowStride = parameters.bCols;
     let outputBatchStride = parameters.aRows * outputRowStride;
     let outputIndex = outputBatch * outputBatchStride + outputRow * outputRowStride + outputCol;
-    output[outputIndex] = result;
+
+    result[outputIndex] = sum00;
+    result[outputIndex + 1u ] = sum01;
+    result[outputIndex + 2u ] = sum02;
+    result[outputIndex + 3u ] = sum03;
 `
     },
     sumDim: {

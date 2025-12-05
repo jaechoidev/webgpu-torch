@@ -10,12 +10,11 @@ import { registerKernel } from '../kernels';
 import { topk4DKernel, topk4DKernelOptimized } from './TopKKernel';
 import { sliceKernel } from './SliceKernel';
 import { transposeKernel } from './TransposeKernel';
-import { softmaxKernel } from './SoftmaxKernel';
+import { softmaxKernel, squaremaxKernel } from './SoftmaxKernel';
 import { permuteKernel } from './PermuteKernel';
 import { sliceAssignKernel } from './SliceAssignKernel';
 import { maxpool2dKernel } from './MaxPool2dKernel';
 import { clampKernel } from './ClampKernel';
-
 class TensorCache {
   private cache = new Map<string, Tensor[]>();
   private maxSize = 10;
@@ -88,6 +87,7 @@ export function ensureKernelsRegistered() {
     registerKernel('slice_assign', sliceAssignKernel);
     registerKernel('maxpool2d', maxpool2dKernel);
     registerKernel('clamp', clampKernel);
+    registerKernel('squaremax', squaremaxKernel)
     kernelsRegistered = true;
   }
 }
@@ -731,6 +731,7 @@ export function softmax(input: Tensor, dim: number = -1, keepdim: boolean = fals
   };
 
   const result = input.runKernel('softmax_dim', config, params, [shape]);
+//   const result = input.runKernel('softmax_fast', config, params, [shape]);
 
   if (!keepdim) {
     return torch.squeeze(result[0], dim);
@@ -738,7 +739,53 @@ export function softmax(input: Tensor, dim: number = -1, keepdim: boolean = fals
 
   return result[0];
 }
+export function squaremax(input: Tensor, dim: number = -1, keepdim: boolean = false): Tensor {
+  ensureKernelsRegistered();
 
+  const shape = input.shape;
+  const ndim = shape.length;
+
+  if (dim < 0) dim = ndim + dim;
+
+  if (dim < 0 || dim >= ndim) {
+    throw new Error(`softmax: invalid dimension ${dim} for ${ndim}D tensor`);
+  }
+
+  if (ndim < 1 || ndim > 5) {
+    throw new Error(`softmax: GPU kernel supports 1D-5D tensors, got ${ndim}D`);
+  }
+
+  const shape5D = [...shape, ...Array(5 - ndim).fill(1)];
+
+  const reduceDim5D = dim;
+
+  const totalSize = shape5D.reduce((a, b) => a * b, 1);
+  const reduceSize = shape5D[reduceDim5D];
+  const numThreads = totalSize / reduceSize;
+
+  const config = {
+    numThreads: numThreads
+  };
+
+  const params = {
+    ndim: ndim,
+    reduceDim: reduceDim5D,
+    D0: shape5D[0],
+    D1: shape5D[1],
+    D2: shape5D[2],
+    D3: shape5D[3],
+    D4: shape5D[4],
+  };
+
+  const result = input.runKernel('squaremax', config, params, [shape]);
+//   const result = input.runKernel('softmax_fast', config, params, [shape]);
+
+  if (!keepdim) {
+    return torch.squeeze(result[0], dim);
+  }
+
+  return result[0];
+}
 /**
  * Extract scalar value from 0-d or 1-element tensor
  * Replacement for .item()
