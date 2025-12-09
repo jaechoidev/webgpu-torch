@@ -603,7 +603,6 @@ export function matmul(input: Tensor, other: Tensor): Tensor {
                 `inconsistent tensor size, expected tensor [${a.shape}] and src [${b.shape}] to have the same number of elements, but got ${a.shape[0]} and ${b.shape[0]} elements respectively`
             );
         }
-        return fastmm(input, other);
 
         op = "dot";
         aop = a;
@@ -613,19 +612,10 @@ export function matmul(input: Tensor, other: Tensor): Tensor {
     // If both arguments are 2-dimensional, the matrix-matrix product is returned
     else if (adims === 2 && bdims === 2) {
         return fastmm(input, other);
-        op = "fastmm";
-        aop = a;
-        bop = b;
-        outputShape = [a.shape[0], b.shape[1]];
-        if (aop.shape[1] !== b.shape[0]) {
-            throw new Error(
-                `mat1 and mat2 shapes cannot be multiplied (${a.shape[0]}x${a.shape[1]} and ${b.shape[0]}x${b.shape[1]})`
-            );
-        }
+
     }
     // If the first argument is 1-dimensional and the second argument is 2-dimensional, a 1 is prepended to its dimension
     else if (adims === 1 && bdims === 2) {
-        return fastmm(input, other);
 
         const aopshape = b.shape.slice();
         const aopstrides = b.strides.slice();
@@ -647,7 +637,6 @@ export function matmul(input: Tensor, other: Tensor): Tensor {
     }
     // If the first argument is 2-dimensional and the second argument is 1-dimensional, the matrix-vector product is returned
     else if (adims === 2 && bdims == 1) {
-        return fastmm(input, other);
 
 
         op = "mv";
@@ -691,17 +680,6 @@ export function matmul(input: Tensor, other: Tensor): Tensor {
             bColStride: bop.strides[2],
             alpha: 1.0,
         };
-    } else if (op === "mm") {
-        params = {
-            aRows: aop.shape[0],
-            aCols: aop.shape[1],
-            bCols: bop.shape[1],
-            aRowStride: aop.strides[0],
-            aColStride: aop.strides[1],
-            bRowStride: bop.strides[0],
-            bColStride: bop.strides[1],
-            alpha: 1.0,
-        };
     } else if (op === "mv") {
         params = {
             aRows: aop.shape[0],
@@ -741,38 +719,14 @@ export function mm(input: Tensor, other: Tensor): Tensor {
         );
     }
     return fastmm(input, other);
-    const params = {
-        aRows: input.shape[0],
-        aCols: input.shape[1],
-        bCols: other.shape[1],
-        aRowStride: input.strides[0],
-        aColStride: input.strides[1],
-        bRowStride: other.strides[0],
-        bColStride: other.strides[1],
-        alpha: 1.0,
-    };
-    console.log('mm parameters:',params)
-    return input.runKernel(
-        "mm",
-        { resultDtype: input.dtype },
-        params,
-        [[params.aRows, params.bCols]],
-        other
-    )[0];
+
 
 
     }
 }
 export function fastmm(input: Tensor, other: Tensor): Tensor {
     console.log(`CYP: fastmm func ${input.shape} x ${other.shape}`)
-    if (shouldCreateGradient(input, other)) {
-        throw new Error("mm gradient not supported yet");
-    } else {
-    if (input.shape.length !== 2 || other.shape.length !== 2) {
-        throw new Error(
-            `Expected 2D tensors, got ${input.shape} and ${other.shape}`
-        );
-    }
+
     if (input.shape[1] !== other.shape[0]) {
         throw new Error(
             `Expected tensors inner dimensions to be compatible, got ${input.shape} and ${other.shape}`
@@ -790,14 +744,14 @@ export function fastmm(input: Tensor, other: Tensor): Tensor {
     // console.log(input.strides)
     console.log(`CYP: ${input.shape}, ${other.shape}, ${input.strides}, ${other.strides}`);
     return input.runKernel(
-        "fastmm_tile_8_row",
+        "fastmm_row",
         { resultDtype: input.dtype },
         params,
         [[params.aRows, params.bCols]],
         other
     )[0];
-    }
 }
+
 
 export function numel(input: Tensor): number {
     return shapeSize(input.shape);
