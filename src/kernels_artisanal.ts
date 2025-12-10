@@ -505,6 +505,7 @@ export const kernels: { [name: string]: KernelSpec } = {
 
 `
     },
+    // 1-dimensional patches
     naivemm: {
         name: "naivemm",
         config: [
@@ -561,7 +562,7 @@ export const kernels: { [name: string]: KernelSpec } = {
             }
         ],
         workgroupSize: [16,16,1],
-        workgroupCount: ["(aRows + 15) / 16", "(bCols + 63) / 64", 1],
+        workgroupCount: ["aRows / 16", "bCols / 16", 1],
         shader: `
 
         const TILESIZE = 4;
@@ -605,6 +606,7 @@ export const kernels: { [name: string]: KernelSpec } = {
         result[outputIndex + 3u ] = sum03;
     `
     },
+    // faster than fast_mm_tile_8_row, but still slower than 4x4 patches.
     fastmm_tile_8_col: {
         name: "fastmm16_tile_8_col",
         config: [
@@ -633,7 +635,7 @@ export const kernels: { [name: string]: KernelSpec } = {
             }
         ],
         workgroupSize: [16, 16, 1], 
-        workgroupCount: ["(bCols + 127) / 128", "(aRows + 127) / 128", 1], 
+        workgroupCount: ["bCols / 128", "aRows / 128", 1], 
 
         shader: `
         const TILE_M = 8u; // Rows per thread
@@ -710,6 +712,8 @@ export const kernels: { [name: string]: KernelSpec } = {
         }
         `
     },
+
+    // theoretically should speed up code, probably hardware dependent
     fastmm_tile_8_row: {
         name: "fastmm_tile_8_row",
         config: [
@@ -949,6 +953,7 @@ export const kernels: { [name: string]: KernelSpec } = {
         
 
     },
+    // Column major access -- slower in practice
     fastmm_col: {
         name: "fastmm_col",
         config: [
@@ -1083,7 +1088,6 @@ export const kernels: { [name: string]: KernelSpec } = {
 
     },
 
-
     bmm: {
         name: "bmm",
         config: [
@@ -1203,6 +1207,161 @@ export const kernels: { [name: string]: KernelSpec } = {
     result[outputIndex + 3u ] = sum03;
 `
     },
+    // bmm_tiled is supposed to be the 'faster' implementation, but works slower for me in practice
+    bmm_tiled: {
+        name: "bmm_tiled",
+        config: [
+            {
+                name: "resultDtype",
+            },
+        ],
+        parameters: [
+            {
+                name: "batchSize",
+                shaderType: "u32",
+            },
+            {
+                name: "aRows",
+                shaderType: "u32",
+            },
+            {
+                name: "aCols",
+                shaderType: "u32",
+            },
+            {
+                name: "bCols",
+                shaderType: "u32",
+            },
+            {
+                name: "aBatchStride",
+                shaderType: "u32",
+            },
+            {
+                name: "aRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "aColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bBatchStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bRowStride",
+                shaderType: "u32",
+            },
+            {
+                name: "bColStride",
+                shaderType: "u32",
+            },
+            {
+                name: "alpha",
+                shaderType: "f32",
+            },
+        ],
+        inputs: [
+            {
+                name: "a",
+                shaderType: "array<f32>",
+            },
+            {
+                name: "b",
+                shaderType: "array<f32>",
+            },
+        ],
+        outputs: [
+            {
+                name: "result",
+                shaderType: "array<f32>",
+                size: "batchSize * aRows * bCols",
+            },
+        ],
+        workgroupSize: [16, 16, 1],
+        workgroupCount: ["(bCols + 63)/64", "(aRows + 63)/64", "batchSize"],
+
+        shader: `
+        const TILE_M = 4u; // Rows per thread
+        const TILE_N = 4u; // Cols per thread
+        
+        let row = global_id.x * TILE_M;
+        let col = global_id.y * TILE_N;
+        let batch = global_id.z;
+
+        if (row >= parameters.aRows || col >= parameters.bCols || batch >= parameters.batchSize) {
+            return;
+        }
+
+        // Initialize 4x4 accumulator registers
+        var sums: array<array<f32, TILE_N>, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                sums[i][j] = 0.0;
+            }
+        }
+
+        // --- POINTER SETUP ---
+
+        // A Pointers: (Batch * BatchStride) + (Row * RowStride)
+        var aBatchOffset = batch * parameters.aBatchStride;
+        var a_ptrs: array<u32, TILE_M>;
+        for (var i = 0u; i < TILE_M; i++) {
+            a_ptrs[i] = aBatchOffset + (row + i) * parameters.aRowStride;
+        }
+
+        // B Pointers: (Batch * BatchStride) + (Col * ColStride)
+        var bBatchOffset = batch * parameters.bBatchStride;
+        var b_ptrs: array<u32, TILE_N>;
+        for (var j = 0u; j < TILE_N; j++) {
+            b_ptrs[j] = bBatchOffset + (col + j) * parameters.bColStride;
+        }
+
+        // --- MAIN LOOP ---
+        for (var k = 0u; k < parameters.aCols; k = k + 1u) {
+            
+            for (var i = 0u; i < TILE_M; i++) {
+                // Bounds check for A (Height)
+                if ((row + i) < parameters.aRows) {
+                    let a_val = a[a_ptrs[i]];
+                    
+                    for (var j = 0u; j < TILE_N; j++) {
+                        // Bounds check for B (Width)
+                        if ((col + j) < parameters.bCols) {
+                            let b_val = b[b_ptrs[j]];
+                            sums[i][j] = sums[i][j] + a_val * b_val;
+                        }
+                    }
+                }
+            }
+
+            // Advance pointers
+            for (var i = 0u; i < TILE_M; i++) {
+                a_ptrs[i] = a_ptrs[i] + parameters.aColStride;
+            }
+            for (var j = 0u; j < TILE_N; j++) {
+                b_ptrs[j] = b_ptrs[j] + parameters.bRowStride;
+            }
+        }
+
+        // --- WRITE RESULTS ---
+        let outputBatchStride = parameters.aRows * parameters.bCols;
+        let outputBatchOffset = batch * outputBatchStride;
+
+        for (var i = 0u; i < TILE_M; i++) {
+            for (var j = 0u; j < TILE_N; j++) {
+                let output_row = row + i;
+                let output_col = col + j;
+                
+                if (output_row < parameters.aRows && output_col < parameters.bCols) {
+                    let index = outputBatchOffset + output_row * parameters.bCols + output_col;
+                    result[index] = sums[i][j];
+                }
+            }
+        }
+`
+    },
+    
     sumDim: {
         name: "sumDim",
         config: [
