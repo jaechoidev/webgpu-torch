@@ -24,13 +24,24 @@ export async function discoverWebGPUDevicesAsync(): Promise<boolean> {
     const canTimestamp = adapter.features.has('timestamp-query');
     console.log(`[WebGPU] timestamp-query support: ${canTimestamp}`);
 
+    // Check if subgroups feature is supported
+    const canSubgroups = adapter.features.has('subgroups');
+    console.log(`[WebGPU] subgroups support: ${canSubgroups}`);
+
     console.log(`[WebGPU] Adapter limits:`, {
         maxBufferSize: `${(adapter.limits.maxBufferSize / 1024 / 1024).toFixed(2)} MB`,
         maxStorageBufferBindingSize: `${(adapter.limits.maxStorageBufferBindingSize / 1024 / 1024).toFixed(2)} MB`,
     });
 
+    // Build required features list
+    const requiredFeatures: string[] = [];
+    if (canSubgroups) {
+        requiredFeatures.push('subgroups');
+    }
+
     // Request maximum limits supported by the adapter for large tensor operations
     const device = await adapter.requestDevice({
+        requiredFeatures: requiredFeatures as any,
         requiredLimits: {
             maxStorageBuffersPerShaderStage: adapter.limits.maxStorageBuffersPerShaderStage,
             maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,

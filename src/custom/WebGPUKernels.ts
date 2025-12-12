@@ -205,6 +205,17 @@ export function slice(input: Tensor, ranges: SliceRange[]): Tensor {
   const outputShape5D = [...newShape, ...Array(5 - ndim).fill(1)];
   const offsets5D = [...offsets, ...Array(5 - ndim).fill(0)];
 
+  // Pre-compute strides for faster GPU indexing
+  const inputStride0 = inputShape5D[1] * inputShape5D[2] * inputShape5D[3] * inputShape5D[4];
+  const inputStride1 = inputShape5D[2] * inputShape5D[3] * inputShape5D[4];
+  const inputStride2 = inputShape5D[3] * inputShape5D[4];
+  const inputStride3 = inputShape5D[4];
+
+  const outputStride0 = outputShape5D[1] * outputShape5D[2] * outputShape5D[3] * outputShape5D[4];
+  const outputStride1 = outputShape5D[2] * outputShape5D[3] * outputShape5D[4];
+  const outputStride2 = outputShape5D[3] * outputShape5D[4];
+  const outputStride3 = outputShape5D[4];
+
   const params = {
     ndim: ndim,
     inputD0: inputShape5D[0],
@@ -222,6 +233,14 @@ export function slice(input: Tensor, ranges: SliceRange[]): Tensor {
     offset2: offsets5D[2],
     offset3: offsets5D[3],
     offset4: offsets5D[4],
+    inputStride0,
+    inputStride1,
+    inputStride2,
+    inputStride3,
+    outputStride0,
+    outputStride1,
+    outputStride2,
+    outputStride3,
   };
 
   const result = input.runKernel(
@@ -312,6 +331,17 @@ export function sliceCopy(
   const srcShape5D = [...srcShape, ...Array(5 - ndim).fill(1)];
   const starts5D = [...starts, ...Array(5 - ndim).fill(0)];
 
+  // Pre-compute strides for faster GPU indexing
+  const destStride0 = destShape5D[1] * destShape5D[2] * destShape5D[3] * destShape5D[4];
+  const destStride1 = destShape5D[2] * destShape5D[3] * destShape5D[4];
+  const destStride2 = destShape5D[3] * destShape5D[4];
+  const destStride3 = destShape5D[4];
+
+  const srcStride0 = srcShape5D[1] * srcShape5D[2] * srcShape5D[3] * srcShape5D[4];
+  const srcStride1 = srcShape5D[2] * srcShape5D[3] * srcShape5D[4];
+  const srcStride2 = srcShape5D[3] * srcShape5D[4];
+  const srcStride3 = srcShape5D[4];
+
   const params = {
     ndim,
     destD0: destShape5D[0],
@@ -329,6 +359,14 @@ export function sliceCopy(
     start2: starts5D[2],
     start3: starts5D[3],
     start4: starts5D[4],
+    destStride0,
+    destStride1,
+    destStride2,
+    destStride3,
+    srcStride0,
+    srcStride1,
+    srcStride2,
+    srcStride3,
   };
 
   // TODO(PAPR): Use runKernelInplace to update destination buffer directly
@@ -714,10 +752,10 @@ export function softmax(input: Tensor, dim: number = -1, keepdim: boolean = fals
 
   const totalSize = shape5D.reduce((a, b) => a * b, 1);
   const reduceSize = shape5D[reduceDim5D];
-  const numThreads = totalSize / reduceSize;
+  const numSlices = totalSize / reduceSize;
 
   const config = {
-    numThreads: numThreads
+    numSlices: numSlices
   };
 
   const params = {

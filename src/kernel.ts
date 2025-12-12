@@ -303,7 +303,15 @@ export function getKernelShaderCode(
 ): string {
     const [configdShader, env] = configShader(spec, config);
 
-    let shaderCodeParts: string[] = ["// " + spec.name + " kernel"];
+    let shaderCodeParts: string[] = [];
+
+    // Check if shader uses subgroup operations and add enable directive
+    if (configdShader.includes("subgroup")) {
+        shaderCodeParts.push("enable subgroups;");
+        shaderCodeParts.push("");
+    }
+
+    shaderCodeParts.push("// " + spec.name + " kernel");
     shaderCodeParts.push(`struct ${spec.name}Parameters {`);
     for (let i = 0; i < spec.parameters.length; i++) {
         let parameter = spec.parameters[i];
@@ -361,6 +369,24 @@ export function getKernelShaderCode(
     if (configdShader.includes("local_id")) {
         shaderCodeParts.push(
             `    ${head}@builtin(local_invocation_id) local_id: vec3u`
+        );
+        head = ", ";
+    }
+    if (configdShader.includes("workgroup_id")) {
+        shaderCodeParts.push(
+            `    ${head}@builtin(workgroup_id) workgroup_id: vec3u`
+        );
+        head = ", ";
+    }
+    if (configdShader.includes("subgroup_invocation_id")) {
+        shaderCodeParts.push(
+            `    ${head}@builtin(subgroup_invocation_id) subgroup_invocation_id: u32`
+        );
+        head = ", ";
+    }
+    if (configdShader.includes("subgroup_size")) {
+        shaderCodeParts.push(
+            `    ${head}@builtin(subgroup_size) subgroup_size: u32`
         );
         head = ", ";
     }
