@@ -2,7 +2,7 @@ import { shouldCreateGradient } from "./autograd";
 import { Tensor } from "./tensor";
 import type { Deviceish } from "./device";
 import type { Dtype } from "./dtype";
-import { slice } from "./custom/WebGPUKernels";
+import { slice, permute } from "./custom/WebGPUKernels";
 import {
     broadcastBatchedMatmul,
     contiguousStridedShape,
@@ -98,15 +98,15 @@ export function cat(inputs: Tensor[], dim: number = 0): Tensor {
     const device = inputs[0].device;
 
     // Log large concatenations for debugging
-    const outputSize = outputShape.reduce((a, b) => a * b, 1) * 4; // assuming float32
-    if (outputSize > 100 * 1024 * 1024) { // > 100MB
-        console.warn(`[CAT] Large concatenation: ${inputs.length} inputs, output shape [${outputShape}], ` +
-                     `output size: ${(outputSize / 1024 / 1024).toFixed(2)} MB, dim: ${dim}`);
-        inputs.forEach((t, i) => {
-            const inputSize = t.shape.reduce((a, b) => a * b, 1) * 4;
-            console.warn(`  Input ${i}: shape [${t.shape}], size: ${(inputSize / 1024 / 1024).toFixed(2)} MB`);
-        });
-    }
+    // const outputSize = outputShape.reduce((a, b) => a * b, 1) * 4; // assuming float32
+    // if (outputSize > 100 * 1024 * 1024) { // > 100MB
+    //     console.warn(`[CAT] Large concatenation: ${inputs.length} inputs, output shape [${outputShape}], ` +
+    //                  `output size: ${(outputSize / 1024 / 1024).toFixed(2)} MB, dim: ${dim}`);
+    //     inputs.forEach((t, i) => {
+    //         const inputSize = t.shape.reduce((a, b) => a * b, 1) * 4;
+    //         console.warn(`  Input ${i}: shape [${t.shape}], size: ${(inputSize / 1024 / 1024).toFixed(2)} MB`);
+    //     });
+    // }
 
     // Debug: Check device type
 
@@ -343,49 +343,82 @@ export function conv2d(
         const outputHeight = Math.floor((input.shape[2] + 2 * padH - weight.shape[2]) / strideH) + 1;
         const outputWidth = Math.floor((input.shape[3] + 2 * padW - weight.shape[3]) / strideW) + 1;
 
-        const params = {
-            batchSize: input.shape[0],
-            inputChannels: input.shape[1],
-            outputChannels: weight.shape[0],
-            inputHeight: input.shape[2],
-            inputWidth: input.shape[3],
-            kernelHeight: weight.shape[2],
-            kernelWidth: weight.shape[3],
-            outputHeight: outputHeight,
-            outputWidth: outputWidth,
-            padH: padH,
-            padW: padW,
-            strideH: strideH,
-            strideW: strideW,
-        };
+        const batchSize = input.shape[0];
+        const inputChannels = input.shape[1];
+        const outputChannels = weight.shape[0];
+        const kernelHeight = weight.shape[2];
+        const kernelWidth = weight.shape[3];
 
-        // WORKAROUND: WebGPU 64-channel execution limit
-        // Use splitChannelOperation to handle any number of output channels
+        // ========== Im2col + GEMM Approach with Input Channel Splitting ==========
+        // Split input channels to keep im2col buffer under 200MB (reduced for memory optimization)
+        // im2col output: [B * H_out * W_out, C_in_split * K_H * K_W]
+        const maxInputChannels = Math.max(1, Math.floor(200000000 / (batchSize * outputHeight * outputWidth * kernelHeight * kernelWidth * 4)));
+
         const result = splitChannelOperation(
-            params.outputChannels,
+            outputChannels,
             1, // Channel dimension in NCHW format
-            (startChannel: number, endChannel: number) => {
-                const channelCount = endChannel - startChannel;
+            (startOutChannel: number, endOutChannel: number) => {
+                const outChannelCount = endOutChannel - startOutChannel;
 
-                // Slice weight tensor: [out_channels, in_channels, kH, kW]
-                const weightSlice = slice(weight, [[startChannel, endChannel], null, null, null]);
+                // Accumulate results across input channel batches
+                let accumulated: Tensor | null = null;
 
-                // Create params for this channel batch
-                const batchParams = { ...params, outputChannels: channelCount };
+                for (let ic = 0; ic < inputChannels; ic += maxInputChannels) {
+                    const currentInputChannels = Math.min(maxInputChannels, inputChannels - ic);
 
-                // Run kernel for this channel batch
-                return input.runKernel(
-            "conv2d",
-            { dtype: input.dtype },
-                    batchParams,
-                    [[batchParams.batchSize, channelCount, batchParams.outputHeight, batchParams.outputWidth]],
-                    weightSlice
-        )[0];
+                    // Slice input channels
+                    const inputSlice = slice(input, [null, [ic, ic + currentInputChannels], null, null]);
+
+                    // Step 1: Apply im2col transformation
+                    const im2colParams = {
+                        batchSize: batchSize,
+                        inputChannels: currentInputChannels,
+                        inputHeight: input.shape[2],
+                        inputWidth: input.shape[3],
+                        kernelHeight: kernelHeight,
+                        kernelWidth: kernelWidth,
+                        outputHeight: outputHeight,
+                        outputWidth: outputWidth,
+                        padH: padH,
+                        padW: padW,
+                        strideH: strideH,
+                        strideW: strideW,
+                        dilationH: 1,
+                        dilationW: 1,
+                    };
+
+                    // Use im2col_transposed to avoid expensive transpose operation
+                    const im2colOutput = inputSlice.runKernel(
+                        "im2col_transposed",
+                        { dtype: inputSlice.dtype },
+                        im2colParams,
+                        [[currentInputChannels * kernelHeight * kernelWidth, batchSize * outputHeight * outputWidth]],
+                    )[0];
+
+                    // Step 2: Slice and reshape weight
+                    const weightSlice = slice(weight, [[startOutChannel, endOutChannel], [ic, ic + currentInputChannels], null, null]);
+                    const weightReshaped = weightSlice.reshape([outChannelCount, currentInputChannels * kernelHeight * kernelWidth]);
+
+                    // Step 3: GEMM - weight @ im2col^T (already transposed by kernel)
+                    // weight: [C_out, C_in*K*K]
+                    // im2col_transposed: [C_in*K*K, B*H*W]
+                    // result: [C_out, B*H*W]
+                    const partialResult = fastmm(weightReshaped, im2colOutput);
+
+                    // Step 4: Reshape and permute
+                    // [C_out, B*H*W] -> [C_out, B, H, W] -> [B, C_out, H, W]
+                    const resultReshaped = partialResult.reshape([outChannelCount, batchSize, outputHeight, outputWidth]);
+                    const result = permute(resultReshaped, [1, 0, 2, 3]);
+
+                    // Accumulate
+                    accumulated = accumulated === null ? result : accumulated.add(result);
+                }
+
+                return accumulated!;
             }
         );
 
-        // Add bias if provided
-        // WORKAROUND: Use splitChannelOperation for bias addition too (64-channel limit affects .add() operation)
+        // Step 5: Add bias if provided
         const finalResult = bias
             ? splitChannelOperation(
                 bias.shape[0],
@@ -666,7 +699,7 @@ export function matmul(input: Tensor, other: Tensor): Tensor {
     }
     let params: KernelParamsInput = {};
     if (op === "bmm") {
-        console.log('BATCH MULT\n')
+        // console.log('BATCH MULT\n')
         params = {
             batchSize: Math.max(aop.shape[0], bop.shape[0]),
             aRows: aop.shape[1],
@@ -721,7 +754,6 @@ export function mm(input: Tensor, other: Tensor): Tensor {
     return fastmm(input, other);
 
 
-
     }
 }
 export function fastmm(input: Tensor, other: Tensor): Tensor {
@@ -742,7 +774,7 @@ export function fastmm(input: Tensor, other: Tensor): Tensor {
         bColStride: other.strides[1],       
     };
     // console.log(input.strides)
-    console.log(`CYP: ${input.shape}, ${other.shape}, ${input.strides}, ${other.strides}`);
+    // console.log(`CYP: ${input.shape}, ${other.shape}, ${input.strides}, ${other.strides}`);
     return input.runKernel(
         "fastmm_row",
         { resultDtype: input.dtype },

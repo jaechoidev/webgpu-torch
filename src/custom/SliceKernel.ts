@@ -30,6 +30,15 @@ export const sliceKernel: KernelSpec = {
     { name: "offset2", shaderType: "u32" },
     { name: "offset3", shaderType: "u32" },
     { name: "offset4", shaderType: "u32" },
+    // Pre-computed strides for faster indexing
+    { name: "inputStride0", shaderType: "u32" },
+    { name: "inputStride1", shaderType: "u32" },
+    { name: "inputStride2", shaderType: "u32" },
+    { name: "inputStride3", shaderType: "u32" },
+    { name: "outputStride0", shaderType: "u32" },
+    { name: "outputStride1", shaderType: "u32" },
+    { name: "outputStride2", shaderType: "u32" },
+    { name: "outputStride3", shaderType: "u32" },
   ],
   inputs: [
     {
@@ -45,39 +54,44 @@ export const sliceKernel: KernelSpec = {
     },
   ],
   workgroupSize: [256, 1, 1],
-  workgroupCount: ["65535", "((outputD0 * outputD1 * outputD2 * outputD3 * outputD4 + 255) / 256 + 65534) / 65535", 1],
+  workgroupCount: ["((outputD0 * outputD1 * outputD2 * outputD3 * outputD4 + 3) / 4 + 255) / 256", 1, 1],
   workgroupVariables: [],
   shader: `
-    let output_idx = global_id.x + global_id.y * 65535u * 256u;
+    // OPTIMIZATION: Process 4 elements per thread
+    let thread_idx = global_id.x;
     let total_elements = parameters.outputD0 * parameters.outputD1 * parameters.outputD2 *
                          parameters.outputD3 * parameters.outputD4;
 
-    if (output_idx >= total_elements) {
+    let base_idx = thread_idx * 4u;
+
+    // OPTIMIZATION: Unrolled loop for 4 elements
+    for (var i = 0u; i < 4u; i = i + 1u) {
+      let output_idx = base_idx + i;
+
+      if (output_idx >= total_elements) {
         return;
+      }
+
+      // Fast index decomposition
+      var temp = output_idx;
+      let o4 = temp % parameters.outputD4;
+      temp = temp / parameters.outputD4;
+      let o3 = temp % parameters.outputD3;
+      temp = temp / parameters.outputD3;
+      let o2 = temp % parameters.outputD2;
+      temp = temp / parameters.outputD2;
+      let o1 = temp % parameters.outputD1;
+      let o0 = temp / parameters.outputD1;
+
+      // Direct input index calculation
+      let input_idx = (o0 + parameters.offset0) * parameters.inputStride0 +
+                      (o1 + parameters.offset1) * parameters.inputStride1 +
+                      (o2 + parameters.offset2) * parameters.inputStride2 +
+                      (o3 + parameters.offset3) * parameters.inputStride3 +
+                      (o4 + parameters.offset4);
+
+      // Memory coalescing
+      output[output_idx] = input[input_idx];
     }
-
-    var temp_idx = output_idx;
-    let output_d4 = temp_idx % parameters.outputD4;
-    temp_idx = temp_idx / parameters.outputD4;
-    let output_d3 = temp_idx % parameters.outputD3;
-    temp_idx = temp_idx / parameters.outputD3;
-    let output_d2 = temp_idx % parameters.outputD2;
-    temp_idx = temp_idx / parameters.outputD2;
-    let output_d1 = temp_idx % parameters.outputD1;
-    let output_d0 = temp_idx / parameters.outputD1;
-
-    let input_d0 = output_d0 + parameters.offset0;
-    let input_d1 = output_d1 + parameters.offset1;
-    let input_d2 = output_d2 + parameters.offset2;
-    let input_d3 = output_d3 + parameters.offset3;
-    let input_d4 = output_d4 + parameters.offset4;
-
-    let input_idx = input_d4 +
-                    input_d3 * parameters.inputD4 +
-                    input_d2 * parameters.inputD3 * parameters.inputD4 +
-                    input_d1 * parameters.inputD2 * parameters.inputD3 * parameters.inputD4 +
-                    input_d0 * parameters.inputD1 * parameters.inputD2 * parameters.inputD3 * parameters.inputD4;
-
-    output[output_idx] = input[input_idx];
   `,
 };
